@@ -243,7 +243,7 @@ export class PlayerController {
 
   private clampToBattlefield(): void {
     const z = this.camera.position.z;
-    this.camera.position.z = THREE.MathUtils.clamp(z, -54, 48);
+    this.camera.position.z = THREE.MathUtils.clamp(z, this.bounds.minZ, 48);
 
     if (this.camera.position.z > this.bounds.minZ && this.camera.position.z < this.bounds.maxZ) {
       if (Math.abs(this.camera.position.x) > this.bounds.maxX) {

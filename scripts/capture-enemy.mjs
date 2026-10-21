@@ -16,8 +16,8 @@ await page.waitForTimeout(1200);
 await page.evaluate(() => {
   const debug = window.__battleDebug;
   debug.player.setEnabled(false);
-  debug.camera.position.set(0, 9.65, -28);
-  debug.camera.rotation.set(-0.12, 0, 0, 'YXZ');
+  debug.camera.position.set(0, 9.65, -42.5);
+  debug.camera.rotation.set(-0.06, 0, 0, 'YXZ');
 });
 await page.waitForTimeout(800);
 await page.screenshot({ path: 'shots/battle_enemy.png' });

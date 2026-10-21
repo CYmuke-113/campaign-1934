@@ -33,6 +33,26 @@ describe('Bot falling', () => {
     assets.dispose();
   });
 
+  it('keeps Nationalist bots behind the far-bank bridgehead, not on the bridge', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.spawn('kmt', 4, false);
+    manager.setPhase(1);
+
+    const world = createWorld();
+    for (let i = 0; i < 40; i += 1) {
+      manager.update(0.1, world);
+    }
+
+    const kmtBots = manager.getBots().filter((bot) => bot.faction === 'kmt');
+    expect(kmtBots).toHaveLength(4);
+    for (const bot of kmtBots) {
+      expect(bot.group.position.z).toBeLessThan(-46);
+    }
+
+    manager.dispose();
+  });
+
   it('can trigger a red bot to fall on its own and notifies the director', () => {
     const scene = new THREE.Scene();
     const onBotDowned = vi.fn();

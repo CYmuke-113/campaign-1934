@@ -133,7 +133,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   const fill = new THREE.AmbientLight(0x40515c, 0.65);
   scene.add(fill);
   const bridgeheadFireLight = new THREE.PointLight(0xff7138, 2.2, 34, 2);
-  bridgeheadFireLight.position.set(0, 12, -43);
+  bridgeheadFireLight.position.set(0, 12, -49);
   scene.add(bridgeheadFireLight);
 
   // River
@@ -304,6 +304,65 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   platform.position.set(0, DECK_Y, -50);
   scene.add(platform);
 
+  // Far-bank bunker: Nationalist soldiers fire from openings, not from the bridge.
+  const bunkerMaterial = track(
+    new THREE.MeshStandardMaterial({
+      map: rockDiffuse,
+      normalMap: rockNormal,
+      roughnessMap: rockRoughness,
+      color: 0x8f8576,
+      roughness: 1,
+      metalness: 0.02,
+    }),
+  );
+  const bunkerDarkMaterial = track(
+    new THREE.MeshStandardMaterial({
+      map: woodDiffuse,
+      normalMap: woodNormal,
+      roughnessMap: woodRoughness,
+      color: 0x4b3f32,
+      roughness: 1,
+      metalness: 0.03,
+    }),
+  );
+  const addBunkerBox = (
+    width: number,
+    height: number,
+    depth: number,
+    x: number,
+    y: number,
+    z: number,
+    material: THREE.MeshStandardMaterial,
+  ): void => {
+    const mesh = new THREE.Mesh(
+      track(new THREE.BoxGeometry(width, height, depth)),
+      material,
+    );
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+  };
+
+  addBunkerBox(13, 1.0, 0.55, 0, DECK_Y + 0.5, -47.5, bunkerMaterial);
+  for (const x of [-5.5, -3.3, -1.1, 1.1, 3.3, 5.5]) {
+    addBunkerBox(0.55, 2.4, 0.55, x, DECK_Y + 1.7, -47.5, bunkerMaterial);
+  }
+  addBunkerBox(13, 0.45, 0.55, 0, DECK_Y + 3.05, -47.5, bunkerMaterial);
+  addBunkerBox(13, 0.3, 4.7, 0, DECK_Y + 3.35, -49.8, bunkerDarkMaterial);
+  addBunkerBox(0.55, 3.1, 5.2, -6.25, DECK_Y + 1.55, -50, bunkerMaterial);
+  addBunkerBox(0.55, 3.1, 5.2, 6.25, DECK_Y + 1.55, -50, bunkerMaterial);
+  addBunkerBox(13, 3.1, 0.55, 0, DECK_Y + 1.55, -52.4, bunkerMaterial);
+
+  for (const x of [-3.3, 3.3]) {
+    addBunkerBox(1.1, 0.4, 0.8, x, DECK_Y + 1.15, -47.9, bunkerDarkMaterial);
+    const barrel = new THREE.Mesh(
+      track(new THREE.CylinderGeometry(0.035, 0.035, 1.1, 6)),
+      bunkerDarkMaterial,
+    );
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(x, DECK_Y + 1.35, -47.35);
+    scene.add(barrel);
+  }
+
   const sandbagMaterial = track(
     new THREE.MeshStandardMaterial({ color: 0x6a5e43, roughness: 0.95 }),
   );
@@ -340,26 +399,6 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   });
   sandbags.instanceMatrix.needsUpdate = true;
   scene.add(sandbags);
-
-  const nestMaterial = track(
-    new THREE.MeshStandardMaterial({
-      map: rustDiffuse,
-      normalMap: rustNormal,
-      roughnessMap: rustRoughness,
-      color: 0x8f8778,
-      roughness: 1,
-      metalness: 0.35,
-    }),
-  );
-  for (const x of [-3.2, 3.2]) {
-    const nest = new THREE.Mesh(track(new THREE.BoxGeometry(1.25, 0.42, 0.8)), nestMaterial);
-    nest.position.set(x, DECK_Y + 0.72, -41.8);
-    scene.add(nest);
-    const barrel = new THREE.Mesh(track(new THREE.CylinderGeometry(0.035, 0.035, 1.2, 6)), nestMaterial);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(x, DECK_Y + 0.92, -41.2);
-    scene.add(barrel);
-  }
 
   // Red start flag
   const pole = new THREE.Mesh(
@@ -548,9 +587,14 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       }),
     );
     const sprite = new THREE.Sprite(material);
-    const baseScale = 1.4 + Math.random() * 1.8;
+    const baseScale = 1.0 + Math.random() * 1.2;
     sprite.scale.set(baseScale, baseScale, 1);
-    sprite.position.set(-3 + i * 2, DECK_Y + 1.1, -42.4 - Math.random() * 1.5);
+    const side = i % 2 === 0 ? -1 : 1;
+    sprite.position.set(
+      side * (5.4 + Math.random() * 1.2),
+      DECK_Y + 1.4,
+      -46.8 - Math.random() * 1.4,
+    );
     scene.add(sprite);
     fireSprites.push({ sprite, baseScale, phase: Math.random() * Math.PI * 2 });
   }
@@ -567,7 +611,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     const sprite = new THREE.Sprite(material);
     const scale = 4 + Math.random() * 4;
     sprite.scale.set(scale, scale, 1);
-    sprite.position.set(-4 + i * 2, DECK_Y + 2.5, -43 - Math.random() * 2);
+    sprite.position.set(-4 + i * 2, DECK_Y + 3.0, -50 - Math.random() * 2);
     scene.add(sprite);
     smokeSprites.push({ sprite, speed: 0.45 + Math.random() * 0.5, baseY: sprite.position.y });
   }

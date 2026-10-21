@@ -84,6 +84,7 @@ export class Bot {
     this.speed = faction === 'red' ? 1.25 + Math.random() * 0.55 : 0.7 + Math.random() * 0.35;
     this.laneX = (Math.random() - 0.5) * 1.9;
     if (isKey) this.laneX = (Math.random() - 0.5) * 1.2;
+    if (faction === 'kmt') this.laneX = (Math.random() - 0.5) * 8;
     this.group.visible = true;
     this.group.position.copy(position);
     this.group.rotation.set(0, faction === 'red' ? Math.PI : 0, 0);
@@ -100,8 +101,9 @@ export class Bot {
       this.targetZ = base + Math.random() * range - (this.isKey ? 1.5 : 0);
       this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
     } else {
-      this.targetZ = -39 + Math.random() * 3;
-      this.state = this.group.position.z < this.targetZ ? 'advance' : 'hold';
+      // Nationalist troops hold inside the far-bank bunker, never on the bridge.
+      this.targetZ = -49.5 - Math.random() * 2.5;
+      this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
     }
   }
 
@@ -442,11 +444,11 @@ export class BotManager {
   }
 
   private makeSpawnPosition(faction: Faction): THREE.Vector3 {
-    const lane = (Math.random() - 0.5) * 1.7;
     if (faction === 'red') {
+      const lane = (Math.random() - 0.5) * 1.7;
       return new THREE.Vector3(lane, 8, 43 + Math.random() * 2.2);
     }
-    return new THREE.Vector3(lane, 8, -43 - Math.random() * 2.2);
+    return new THREE.Vector3((Math.random() - 0.5) * 8, 8, -48 - Math.random() * 4);
   }
 
   private refreshRaycastTargets(): void {
