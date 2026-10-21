@@ -10,7 +10,7 @@ export interface PlayerCallbacks {
   onTriggerUp(): void;
   onReload(): void;
   onDamage(amount: number): void;
-  onDown(): void;
+  onDown: (reason: 'shot' | 'fall') => void;
   onRespawn(): void;
   onPauseRequest(): void;
   onLockChange(locked: boolean): void;
@@ -36,6 +36,8 @@ export class PlayerController {
   private crouched = false;
   private downEndsAt = 0;
   private footstepTimer = 0;
+  private falling = false;
+  private fallVelocity = 0;
   private paused = false;
   private enabled = true;
   private locked = false;
@@ -139,6 +141,17 @@ export class PlayerController {
       return;
     }
 
+    if (this.falling) {
+      this.fallVelocity += 16 * dt;
+      this.camera.position.y -= this.fallVelocity * dt;
+      if (this.camera.position.y <= 0.6) {
+        this.falling = false;
+        this.fallVelocity = 0;
+        this.beginDown('fall');
+      }
+      return;
+    }
+
     let forwardInput = 0;
     let rightInput = 0;
     if (this.keys.has('KeyW')) forwardInput += 1;
@@ -170,6 +183,7 @@ export class PlayerController {
     }
 
     this.clampToBattlefield();
+    if (this.falling) return;
     this.camera.position.y = this.bounds.deckY + this.eyeHeight;
     this.applyRotation();
   }
@@ -179,12 +193,14 @@ export class PlayerController {
     this.hp = Math.max(0, this.hp - amount);
     this.callbacks.onDamage(amount);
     if (this.hp <= 0) {
-      this.beginDown();
+      this.beginDown('shot');
     }
   }
 
   respawn(): void {
     this.downed = false;
+    this.falling = false;
+    this.fallVelocity = 0;
     this.hp = PLAYER_MAX_HP;
     this.downEndsAt = 0;
     this.yaw = 0;
@@ -214,13 +230,15 @@ export class PlayerController {
     }
   }
 
-  private beginDown(): void {
+  private beginDown(reason: 'shot' | 'fall'): void {
     if (this.downed) return;
     this.downed = true;
+    this.falling = false;
+    this.fallVelocity = 0;
     this.downEndsAt = performance.now() + PLAYER_DOWN_RESPAWN_SECONDS * 1000;
     this.keys.clear();
     this.callbacks.onTriggerUp();
-    this.callbacks.onDown();
+    this.callbacks.onDown(reason);
   }
 
   private clampToBattlefield(): void {
@@ -228,15 +246,10 @@ export class PlayerController {
     this.camera.position.z = THREE.MathUtils.clamp(z, -54, 48);
 
     if (this.camera.position.z > this.bounds.minZ && this.camera.position.z < this.bounds.maxZ) {
-      if (Math.abs(this.camera.position.x) > this.bounds.maxX + 0.08) {
-        this.beginDown();
-        return;
+      if (Math.abs(this.camera.position.x) > this.bounds.maxX) {
+        this.falling = true;
+        this.fallVelocity = 1.2;
       }
-      this.camera.position.x = THREE.MathUtils.clamp(
-        this.camera.position.x,
-        -this.bounds.maxX,
-        this.bounds.maxX,
-      );
       return;
     }
 

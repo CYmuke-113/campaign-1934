@@ -111,6 +111,27 @@ test('rifle uses automatic fire and reloads automatically when empty', async ({ 
   expect(result.afterReload.reserve).toBe(110);
 });
 
+test('player can fall off the bridge and see the fall-down state', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  await page.evaluate(() => {
+    const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
+    debug.bots.setKmtModifiers(0, 0.1);
+    debug.camera.position.set(1.4, 9.65, 40);
+  });
+  await page.keyboard.down('KeyD');
+  await page.waitForTimeout(1800);
+  await page.keyboard.up('KeyD');
+
+  await expect(page.locator('[data-hud="down"]')).toHaveClass(/is-visible/, {
+    timeout: 8_000,
+  });
+  await expect(page.locator('[data-hud="down-title"]')).toHaveText('坠桥');
+});
+
 test('damage flashes the edge and low health keeps it red', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();

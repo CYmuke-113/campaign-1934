@@ -98,7 +98,7 @@ export class BattleRuntime {
           this.hud.showDamage();
           this.audio.playDamage();
         },
-        onDown: () => this.handlePlayerDown(),
+        onDown: (reason) => this.handlePlayerDown(reason),
         onRespawn: () => this.handlePlayerRespawn(),
         onPauseRequest: () => this.pause(),
         onLockChange: (locked) => this.hud.setLocked(locked),
@@ -253,11 +253,15 @@ export class BattleRuntime {
     }
   }
 
-  private handlePlayerDown(): void {
+  private handlePlayerDown(reason: 'shot' | 'fall'): void {
     this.stats.recordDeath();
     this.director.notifyPlayerDowned();
-    this.hud.showDown(this.player.downSecondsLeft);
-    this.audio.playExplosion();
+    this.hud.showDown(this.player.downSecondsLeft, reason);
+    if (reason === 'fall') {
+      this.audio.playFall();
+    } else {
+      this.audio.playExplosion();
+    }
   }
 
   private handlePlayerRespawn(): void {

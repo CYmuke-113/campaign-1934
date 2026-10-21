@@ -75,6 +75,11 @@ export class AudioManager {
     this.tone(170, 0.12, 0.035, 0.02);
   }
 
+  playFall(): void {
+    this.noiseBurst(0.8, 1100, 0.22, 0, 'highpass');
+    this.thump(82, 28, 0.5, 0.2, 0, 0.18);
+  }
+
   playFootstep(): void {
     this.noiseBurst(0.07, 620, 0.08, (Math.random() - 0.5) * 0.2, 'lowpass');
   }

@@ -21,7 +21,7 @@ export interface BotManagerOptions {
   onBotDowned: (bot: Bot, killedByPlayer: boolean) => void;
 }
 
-type BotState = 'advance' | 'hold' | 'retreat' | 'downed';
+type BotState = 'advance' | 'hold' | 'retreat' | 'downed' | 'falling';
 
 interface BotTarget {
   kind: 'player' | 'bot';
@@ -43,6 +43,8 @@ export class Bot {
   target: BotTarget | null = null;
   deathTimer = 0;
   inactive = false;
+  fallVelocity = 0;
+  fallSide = 1;
 
   readonly group: THREE.Group;
   readonly hitMeshes: THREE.Mesh[];
@@ -75,6 +77,8 @@ export class Bot {
     this.hp = 100;
     this.state = 'advance';
     this.deathTimer = 0;
+    this.fallVelocity = 0;
+    this.fallSide = 1;
     this.fireTimer = 0.8 + Math.random() * 1.4;
     this.retargetTimer = Math.random() * 0.8;
     this.target = null;
@@ -107,6 +111,18 @@ export class Bot {
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp > 0) return false;
 
+    const onBridge =
+      this.group.position.z > -45 &&
+      this.group.position.z < 45 &&
+      Math.abs(this.group.position.x) < 1.5;
+    if (onBridge) {
+      const side = this.group.position.x === 0
+        ? (Math.random() > 0.5 ? 1 : -1)
+        : Math.sign(this.group.position.x);
+      this.fallOffBridge(side);
+      return true;
+    }
+
     this.alive = false;
     this.state = 'downed';
     this.deathTimer = 3.2;
@@ -115,8 +131,32 @@ export class Bot {
     return true;
   }
 
+  fallOffBridge(side: number): void {
+    if (!this.alive && this.state === 'falling') return;
+    this.alive = false;
+    this.hp = 0;
+    this.state = 'falling';
+    this.deathTimer = 5;
+    this.fallSide = side === 0 ? 1 : Math.sign(side);
+    this.fallVelocity = 1.5;
+    this.group.rotation.z = this.fallSide * 0.3;
+  }
+
   tickDeath(dt: number): void {
     if (this.alive) return;
+
+    if (this.state === 'falling') {
+      this.fallVelocity += 16 * dt;
+      this.group.position.y -= this.fallVelocity * dt;
+      this.group.position.x += this.fallSide * 1.4 * dt;
+      this.group.rotation.z += this.fallSide * 1.8 * dt;
+      if (this.group.position.y < 0.2 && this.group.visible) {
+        this.group.visible = false;
+        this.inactive = true;
+      }
+      return;
+    }
+
     this.deathTimer -= dt;
     if (this.deathTimer <= 0 && this.group.visible) {
       this.group.visible = false;
@@ -176,6 +216,7 @@ export class BotManager {
   private nextId = 1;
   private phaseIndex = 0;
   private kmtAccuracy = 0.2;
+  private selfFallTimer = 8 + Math.random() * 8;
   private kmtFireRate = 1;
 
   constructor(options: BotManagerOptions) {
@@ -256,6 +297,15 @@ export class BotManager {
     return this.raycastTargets;
   }
 
+  getBots(): readonly Bot[] {
+    return this.bots;
+  }
+
+  debugTriggerSelfFall(): Bot | null {
+    this.selfFallTimer = 0;
+    return this.maybeSelfFall(0.1);
+  }
+
   update(dt: number, world: BotWorld): void {
     this.refreshRaycastTargets();
 
@@ -281,6 +331,32 @@ export class BotManager {
         bot.fireTimer = base * (0.75 + Math.random() * 0.5);
       }
     }
+
+    this.maybeSelfFall(dt);
+  }
+
+  private maybeSelfFall(dt: number): Bot | null {
+    this.selfFallTimer -= dt;
+    if (this.selfFallTimer > 0) return null;
+    this.selfFallTimer = 9 + Math.random() * 10;
+    if (this.phaseIndex < 1) return null;
+
+    const candidates = this.bots.filter(
+      (bot) =>
+        bot.alive &&
+        bot.faction === 'red' &&
+        !bot.isKey &&
+        bot.group.position.z > -42 &&
+        bot.group.position.z < 45 &&
+        Math.abs(bot.group.position.x) < 1.4,
+    );
+    if (candidates.length === 0) return null;
+
+    const bot = candidates[Math.floor(Math.random() * candidates.length)];
+    bot.fallOffBridge(Math.random() > 0.5 ? 1 : -1);
+    this.onBotDowned(bot, false);
+    this.refreshRaycastTargets();
+    return bot;
   }
 
   dispose(): void {

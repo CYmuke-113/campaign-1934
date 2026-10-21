@@ -30,7 +30,9 @@ export class HUD {
   private readonly hitMarker: HTMLElement;
   private readonly lockHint: HTMLElement;
   private readonly downOverlay: HTMLElement;
+  private readonly downTitle: HTMLElement;
   private readonly downCount: HTMLElement;
+  private downReason: 'shot' | 'fall' = 'shot';
   private readonly debugFields: Record<string, HTMLElement> = {};
   private damageTimer: number | null = null;
   private hitTimer: number | null = null;
@@ -74,7 +76,7 @@ export class HUD {
       </div>
       <div class="down-overlay" data-hud="down">
         <div class="down-card">
-          <div class="down-title">负伤撤离</div>
+          <div class="down-title" data-hud="down-title">负伤撤离</div>
           <div class="down-count" data-hud="down-count">5</div>
           <div class="down-hint">即将在后方重新集结</div>
         </div>
@@ -132,6 +134,7 @@ export class HUD {
     this.hitMarker = this.query('[data-hud="hit-marker"]');
     this.lockHint = this.query('[data-hud="lock-hint"]');
     this.downOverlay = this.query('[data-hud="down"]');
+    this.downTitle = this.query('[data-hud="down-title"]');
     this.downCount = this.query('[data-hud="down-count"]');
 
     this.query('[data-testid="pause-resume"]').addEventListener('click', this.handleResume);
@@ -226,7 +229,11 @@ export class HUD {
     }, 180);
   }
 
-  showDown(seconds: number): void {
+  showDown(seconds: number, reason?: 'shot' | 'fall'): void {
+    if (reason) {
+      this.downReason = reason;
+      this.downTitle.textContent = reason === 'fall' ? '坠桥' : '负伤撤离';
+    }
     this.downOverlay.classList.add('is-visible');
     this.downCount.textContent = String(Math.max(0, Math.ceil(seconds)));
   }
