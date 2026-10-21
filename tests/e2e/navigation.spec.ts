@@ -104,8 +104,9 @@ test('rifle uses automatic fire and reloads automatically when empty', async ({ 
   const result = await page.evaluate(() => {
     const weapon = (window as unknown as { __battleDebug: any }).__battleDebug.weapon;
     weapon.setTrigger(true);
-    for (let i = 0; i < 10; i += 1) {
+    for (let i = 0; i < 30; i += 1) {
       weapon.update(0.1);
+      if (weapon.state.mag === 0) break;
     }
     const afterBurst = { ...weapon.state };
     weapon.setTrigger(false);

@@ -5,6 +5,7 @@ import {
   RELOAD_SECONDS,
   RESERVE_AMMO,
 } from '../core/constants';
+import type { TracerSystem } from './TracerSystem';
 
 export interface WeaponState {
   mag: number;
@@ -39,6 +40,7 @@ export class WeaponSystem {
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
     private readonly getTargets: () => THREE.Object3D[],
+    private readonly tracers: TracerSystem,
     private readonly callbacks: WeaponCallbacks,
   ) {
     this.viewmodel = this.createViewmodel();
@@ -168,19 +170,27 @@ export class WeaponSystem {
     );
     this.raycaster.far = 140;
 
+    const origin = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+    this.camera.getWorldPosition(origin);
+    this.camera.getWorldDirection(direction);
+    origin.add(direction.clone().multiplyScalar(0.9));
+    origin.y -= 0.12;
+    const endPoint = origin.clone().add(direction.clone().multiplyScalar(80));
+
     const intersections = this.raycaster.intersectObjects(this.getTargets(), false);
     for (const intersection of intersections) {
       const botId = intersection.object.userData.botId as string | undefined;
       const faction = intersection.object.userData.faction as string | undefined;
       if (!botId) continue;
-      if (faction === 'red') {
-        return;
-      }
+      endPoint.copy(intersection.point);
       if (faction === 'kmt') {
         this.callbacks.onHit(botId);
-        return;
       }
+      break;
     }
+
+    this.tracers.spawn(origin, endPoint);
   }
 
   private createViewmodel(): THREE.Group {

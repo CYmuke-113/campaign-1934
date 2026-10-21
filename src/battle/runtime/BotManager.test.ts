@@ -10,6 +10,8 @@ function createWorld(): BotWorld {
     playerDowned: true,
     damagePlayer: vi.fn(),
     playBotShot: vi.fn(),
+    spawnTracer: vi.fn(),
+    spawnMuzzleFlash: vi.fn(),
   };
 }
 

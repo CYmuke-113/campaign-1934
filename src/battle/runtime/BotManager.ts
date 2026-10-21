@@ -14,6 +14,8 @@ export interface BotWorld {
   playerDowned: boolean;
   damagePlayer(amount: number): void;
   playBotShot(faction: Faction, position: THREE.Vector3): void;
+  spawnTracer(from: THREE.Vector3, to: THREE.Vector3): void;
+  spawnMuzzleFlash(position: THREE.Vector3): void;
 }
 
 export interface BotManagerOptions {
@@ -401,7 +403,7 @@ export class BotManager {
           if (bot.burstTimer <= 0) {
             this.fireAtTarget(bot, world);
             bot.burstRemaining -= 1;
-            bot.burstTimer = 0.12 + Math.random() * 0.06;
+            bot.burstTimer = 0.14 + Math.random() * 0.05;
             if (bot.burstRemaining <= 0) {
               const base =
                 bot.faction === 'kmt' ? 1.6 / Math.max(0.3, this.kmtFireRate) : 1.7;
@@ -411,7 +413,7 @@ export class BotManager {
         } else {
           bot.fireTimer -= dt;
           if (bot.fireTimer <= 0) {
-            bot.burstRemaining = 2 + Math.floor(Math.random() * 2);
+            bot.burstRemaining = 3 + Math.floor(Math.random() * 3);
             bot.burstTimer = 0;
           }
         }
@@ -475,18 +477,29 @@ export class BotManager {
     if (!bot.target) return;
     const accuracy = bot.faction === 'kmt' ? this.kmtAccuracy : 0.2;
     const hit = Math.random() < accuracy;
+    const origin = bot.group.position.clone();
+    origin.y += 1.2;
+    let targetPoint = origin.clone().add(new THREE.Vector3(0, 0, -24));
 
     if (bot.target.kind === 'player') {
+      targetPoint = world.playerPosition.clone();
+      targetPoint.y += 1.4;
       if (hit && world.playerAlive) {
         world.damagePlayer(SHOT_DAMAGE);
       }
     } else if (bot.target.botId) {
       const target = this.bots.find((candidate) => candidate.id === bot.target?.botId);
-      if (target && target.alive && hit) {
-        this.hitBot(target.id, SHOT_DAMAGE, 'bot');
+      if (target) {
+        targetPoint = target.group.position.clone();
+        targetPoint.y += 1.2;
+        if (target.alive && hit) {
+          this.hitBot(target.id, SHOT_DAMAGE, 'bot');
+        }
       }
     }
 
+    world.spawnTracer(origin, targetPoint);
+    world.spawnMuzzleFlash(origin);
     world.playBotShot(bot.faction, bot.group.position);
   }
 

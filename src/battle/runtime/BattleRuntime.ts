@@ -13,6 +13,7 @@ import { BotManager, type Bot, type BotWorld } from './BotManager';
 import { HUD } from './HUD';
 import { NarrationPlayer } from './NarrationPlayer';
 import { PlayerController } from './PlayerController';
+import { TracerSystem } from './TracerSystem';
 import { WeaponSystem } from './WeaponSystem';
 
 export interface BattleRuntimeOptions {
@@ -28,6 +29,7 @@ export class BattleRuntime {
   private readonly host: HTMLElement;
   private readonly options: BattleRuntimeOptions;
   private readonly battleScene: BattleScene;
+  private readonly tracers: TracerSystem;
   private readonly player: PlayerController;
   private readonly weapon: WeaponSystem;
   private readonly bots: BotManager;
@@ -65,6 +67,7 @@ export class BattleRuntime {
 
     this.battleScene = createBattleScene(host);
     this.battleScene.setPixelRatio(this.pixelRatio);
+    this.tracers = new TracerSystem(this.battleScene.scene);
     this.audio = new AudioManager(this.settings);
     this.narration = new NarrationPlayer(this.settings, {
       onLineStart: (text) => this.hud.setSubtitle(text),
@@ -111,6 +114,7 @@ export class BattleRuntime {
     this.weapon = new WeaponSystem(
       this.battleScene.camera,
       () => this.bots.getRaycastTargets(),
+      this.tracers,
       {
         onShot: () => {
           this.stats.recordShot();
@@ -136,6 +140,12 @@ export class BattleRuntime {
           const dx = position.x - this.player.position.x;
           this.audio.playDistantShot(THREE.MathUtils.clamp(dx / 8, -1, 1));
         }
+      },
+      spawnTracer: (from: THREE.Vector3, to: THREE.Vector3) => {
+        this.tracers.spawn(from, to);
+      },
+      spawnMuzzleFlash: (position: THREE.Vector3) => {
+        this.tracers.spawnMuzzleFlash(position);
       },
     };
 
@@ -187,6 +197,7 @@ export class BattleRuntime {
     this.weapon.dispose();
     this.player.dispose();
     this.bots.dispose();
+    this.tracers.dispose();
     this.audio.dispose();
     this.battleScene.dispose();
   }
@@ -205,6 +216,7 @@ export class BattleRuntime {
       this.bots.update(dt, this.world);
       this.weapon.update(dt);
       this.battleScene.update(dt);
+      this.tracers.update(dt);
       this.updateFps(dt);
     }
 
