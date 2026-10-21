@@ -28,6 +28,7 @@ export interface BattleScene {
   setMachineGunFiring(firing: boolean): void;
   destroyMachineGun(): void;
   isMachineGunDestroyed(): boolean;
+  spawnArtilleryStrike(position: THREE.Vector3): void;
   dispose(): void;
 }
 
@@ -922,6 +923,53 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     smokeSprites.push({ sprite, speed: 0.45 + Math.random() * 0.5, baseY: sprite.position.y });
   }
 
+  const artilleryBursts: Array<{
+    fire: THREE.Sprite;
+    smoke: THREE.Sprite;
+    light: THREE.PointLight;
+    life: number;
+    maxLife: number;
+  }> = [];
+
+  const spawnArtilleryStrike = (position: THREE.Vector3): void => {
+    const fireMaterial = track(
+      new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: 0xff7432,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const fire = new THREE.Sprite(fireMaterial);
+    fire.position.copy(position);
+    fire.position.y += 1.4;
+    fire.scale.set(4.5, 4.5, 1);
+    scene.add(fire);
+
+    const smokeMaterial = track(
+      new THREE.SpriteMaterial({
+        map: smokeTexture,
+        transparent: true,
+        opacity: 0.6,
+        depthWrite: false,
+      }),
+    );
+    const smoke = new THREE.Sprite(smokeMaterial);
+    smoke.position.copy(position);
+    smoke.position.y += 2.2;
+    smoke.scale.set(7, 7, 1);
+    scene.add(smoke);
+
+    const light = new THREE.PointLight(0xff6a2a, 5, 24, 2);
+    light.position.copy(position);
+    light.position.y += 2.5;
+    scene.add(light);
+
+    artilleryBursts.push({ fire, smoke, light, life: 1.2, maxLife: 1.2 });
+  };
+
   let elapsed = 0;
   const rainAttribute = rainGeometry.getAttribute('position') as THREE.BufferAttribute;
 
@@ -957,6 +1005,21 @@ export function createBattleScene(host: HTMLElement): BattleScene {
         item.sprite.position.y = item.baseY;
         material.opacity = 0.22;
       }
+    }
+
+    for (let i = artilleryBursts.length - 1; i >= 0; i -= 1) {
+      const burst = artilleryBursts[i];
+      burst.life -= dt;
+      if (burst.life <= 0) {
+        scene.remove(burst.fire, burst.smoke, burst.light);
+        artilleryBursts.splice(i, 1);
+        continue;
+      }
+      const t = burst.life / burst.maxLife;
+      (burst.fire.material as THREE.SpriteMaterial).opacity = t;
+      (burst.smoke.material as THREE.SpriteMaterial).opacity = 0.6 * t;
+      burst.light.intensity = 5 * t;
+      burst.fire.scale.setScalar(4.5 + (1 - t) * 3);
     }
 
     if (machineGunFiring && !machineGunDestroyed) {
@@ -1034,6 +1097,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     setMachineGunFiring,
     destroyMachineGun,
     isMachineGunDestroyed,
+    spawnArtilleryStrike,
     dispose,
   };
 }

@@ -5,6 +5,7 @@ import { NARRATION } from '../../content/narration';
 import { PHASES } from '../../content/phases';
 import { BattleDirector } from '../core/BattleDirector';
 import { BattleStats } from '../core/BattleStats';
+import { artilleryDamageAt, isInArtilleryBlast } from '../core/artillery';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
@@ -52,6 +53,7 @@ export class BattleRuntime {
   private fpsFrames = 0;
   private machineGunTimer: number | null = null;
   private currentZone: BattleZone | null = null;
+  private artilleryTimer = 10 + Math.random() * 8;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
   private lowFpsWindows = 0;
@@ -234,6 +236,7 @@ export class BattleRuntime {
       this.weapon.update(dt);
       this.battleScene.update(dt);
       this.tracers.update(dt);
+      this.updateArtillery(dt);
       this.updateFps(dt);
     }
 
@@ -404,6 +407,38 @@ export class BattleRuntime {
       Math.max(1, this.host.clientWidth),
       Math.max(1, this.host.clientHeight),
     );
+  }
+
+  private updateArtillery(dt: number): void {
+    if (this.ended) return;
+    this.artilleryTimer -= dt;
+    if (this.artilleryTimer > 0) return;
+    this.artilleryTimer = 10 + Math.random() * 8;
+
+    const redBots = this.bots.getBots().filter((bot) => bot.alive && bot.faction === 'red');
+    const target =
+      redBots.length > 0
+        ? redBots[Math.floor(Math.random() * redBots.length)].group.position.clone()
+        : this.player.position.clone();
+    target.x += (Math.random() - 0.5) * 4;
+    target.z += (Math.random() - 0.5) * 4;
+    target.y = 8;
+    this.battleScene.spawnArtilleryStrike(target);
+    this.audio.playExplosion();
+
+    for (const bot of this.bots.getBots()) {
+      if (!bot.alive) continue;
+      const distance = bot.group.position.distanceTo(target);
+      if (isInArtilleryBlast(distance)) {
+        this.bots.hitBot(bot.id, 100, 'bot');
+      }
+    }
+
+    const playerDistance = this.player.position.distanceTo(target);
+    const damage = artilleryDamageAt(playerDistance);
+    if (damage > 0) {
+      this.player.takeDamage(damage);
+    }
   }
 
   private updateFps(dt: number): void {

@@ -255,8 +255,8 @@ export class BattleDirector {
       this.runtime.sustainRedTimer = spawned > 0 ? 2.5 : 4;
     }
 
-    if (!this.phaseController.isLast) {
-      const kmtFloor = Math.max(6, phase.kmt.initial - 2);
+    if (!this.runtime.retreatTriggered) {
+      const kmtFloor = Math.max(8, phase.kmt.initial - 1);
       if (this.runtime.sustainKmtTimer <= 0 && this.kmtAlive < kmtFloor) {
         const spawned = this.spawnTo('kmt', 1);
         this.runtime.sustainKmtTimer = spawned > 0 ? 3.5 : 5;
