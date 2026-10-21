@@ -94,7 +94,7 @@ export class Bot {
 
   setPhase(phaseIndex: number): void {
     if (this.faction === 'red') {
-      const targets = [42, 14, -16, -38];
+      const targets = [27, 10, -8, -24];
       const spread = [2, 8, 8, 2];
       const base = targets[Math.min(phaseIndex, targets.length - 1)];
       const range = spread[Math.min(phaseIndex, spread.length - 1)];
@@ -102,7 +102,7 @@ export class Bot {
       this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
     } else {
       // Nationalist troops hold inside the far-bank bunker, never on the bridge.
-      this.targetZ = -49.5 - Math.random() * 2.5;
+      this.targetZ = -34.5 - Math.random() * 2.5;
       this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
     }
   }
@@ -113,8 +113,8 @@ export class Bot {
     if (this.hp > 0) return false;
 
     const onBridge =
-      this.group.position.z > -45 &&
-      this.group.position.z < 45 &&
+      this.group.position.z > -30 &&
+      this.group.position.z < 30 &&
       Math.abs(this.group.position.x) < 1.5;
     if (onBridge) {
       const side = this.group.position.x === 0
@@ -348,8 +348,8 @@ export class BotManager {
         bot.alive &&
         bot.faction === 'red' &&
         !bot.isKey &&
-        bot.group.position.z > -42 &&
-        bot.group.position.z < 45 &&
+        bot.group.position.z > -30 &&
+        bot.group.position.z < 30 &&
         Math.abs(bot.group.position.x) < 1.4,
     );
     if (candidates.length === 0) return null;
@@ -446,9 +446,9 @@ export class BotManager {
   private makeSpawnPosition(faction: Faction): THREE.Vector3 {
     if (faction === 'red') {
       const lane = (Math.random() - 0.5) * 1.7;
-      return new THREE.Vector3(lane, 8, 43 + Math.random() * 2.2);
+      return new THREE.Vector3(lane, 8, 27.5 + Math.random() * 2.0);
     }
-    return new THREE.Vector3((Math.random() - 0.5) * 8, 8, -48 - Math.random() * 4);
+    return new THREE.Vector3((Math.random() - 0.5) * 8, 8, -33 - Math.random() * 4);
   }
 
   private refreshRaycastTargets(): void {

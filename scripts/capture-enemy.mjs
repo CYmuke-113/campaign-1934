@@ -16,7 +16,7 @@ await page.waitForTimeout(1200);
 await page.evaluate(() => {
   const debug = window.__battleDebug;
   debug.player.setEnabled(false);
-  debug.camera.position.set(0, 9.65, -42.5);
+  debug.camera.position.set(0, 9.65, -27.5);
   debug.camera.rotation.set(-0.06, 0, 0, 'YXZ');
 });
 await page.waitForTimeout(800);

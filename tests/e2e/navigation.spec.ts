@@ -120,7 +120,7 @@ test('player can fall off the bridge and see the fall-down state', async ({ page
   await page.evaluate(() => {
     const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
     debug.bots.setKmtModifiers(0, 0.1);
-    debug.camera.position.set(1.4, 9.65, 40);
+    debug.camera.position.set(1.4, 9.65, 24);
   });
   await page.keyboard.down('KeyD');
   await page.waitForTimeout(1800);
@@ -168,6 +168,28 @@ test('phase progression through the director reaches the result screen', async (
 
   await expect(page.locator('.result-shell h1')).toHaveText('夺桥成功', { timeout: 8_000 });
   await expect(page.getByTestId('result-back')).toBeVisible();
+});
+
+test('second charge destroys the bunker machine gun', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  const skip = page.getByTestId('debug-panel').locator('[data-debug-action="skip"]');
+  await skip.click();
+  await page.waitForTimeout(250);
+  await skip.click();
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          (window as unknown as { __battleDebug: any }).__battleDebug.machineGunDestroyed(),
+        ),
+      { timeout: 8_000 },
+    )
+    .toBe(true);
 });
 
 test('player is downed, sees the countdown, and respawns', async ({ page }) => {

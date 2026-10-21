@@ -50,7 +50,7 @@ await page.screenshot({ path: 'shots/battle_overhead.png' });
 await page.evaluate(() => {
   const debug = window.__battleDebug;
   if (!debug) return;
-  debug.camera.position.set(0, 9.65, 43);
+  debug.camera.position.set(0, 9.65, 24);
   debug.camera.rotation.set(-0.28, 0, 0, 'YXZ');
 });
 await page.waitForTimeout(400);

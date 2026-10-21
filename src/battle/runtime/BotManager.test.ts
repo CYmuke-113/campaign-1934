@@ -47,7 +47,7 @@ describe('Bot falling', () => {
     const kmtBots = manager.getBots().filter((bot) => bot.faction === 'kmt');
     expect(kmtBots).toHaveLength(4);
     for (const bot of kmtBots) {
-      expect(bot.group.position.z).toBeLessThan(-46);
+      expect(bot.group.position.z).toBeLessThan(-30);
     }
 
     manager.dispose();
@@ -59,7 +59,7 @@ describe('Bot falling', () => {
     const manager = new BotManager({ scene, onBotDowned });
     manager.spawn('red', 1, false);
     manager.setPhase(1);
-    manager.getBots()[0].group.position.set(0, 8, 30);
+    manager.getBots()[0].group.position.set(0, 8, 20);
 
     const falling = manager.debugTriggerSelfFall();
     expect(falling).not.toBeNull();

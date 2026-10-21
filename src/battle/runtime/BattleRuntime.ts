@@ -48,6 +48,7 @@ export class BattleRuntime {
   private fps = 0;
   private fpsAccumulator = 0;
   private fpsFrames = 0;
+  private machineGunTimer: number | null = null;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
   private lowFpsWindows = 0;
@@ -159,6 +160,7 @@ export class BattleRuntime {
         weapon: this.weapon,
         bots: this.bots,
         director: this.director,
+        machineGunDestroyed: () => this.battleScene.isMachineGunDestroyed(),
       };
     }
   }
@@ -174,6 +176,8 @@ export class BattleRuntime {
     cancelAnimationFrame(this.rafId);
     if (this.victoryTimer !== null) window.clearTimeout(this.victoryTimer);
     this.victoryTimer = null;
+    if (this.machineGunTimer !== null) window.clearTimeout(this.machineGunTimer);
+    this.machineGunTimer = null;
     window.removeEventListener('resize', this.handleResize);
     this.host.removeEventListener('pointerdown', this.handleFirstPointer);
     this.host.removeEventListener('click', this.handleFirstPointer);
@@ -244,6 +248,23 @@ export class BattleRuntime {
     }
     this.audio.playUi();
     this.hud.setSubtitle(text ?? phaseName);
+
+    if (index < 2) {
+      this.battleScene.setMachineGunFiring(true);
+    } else if (index === 2) {
+      this.battleScene.setMachineGunFiring(true);
+      if (this.machineGunTimer === null) {
+        this.machineGunTimer = window.setTimeout(() => {
+          this.machineGunTimer = null;
+          this.battleScene.destroyMachineGun();
+          this.audio.playExplosion();
+          this.bots.setKmtModifiers(0.14, 0.7);
+          this.hud.setSubtitle('红军突击队员用手榴弹炸毁了碉堡机枪，突击队趁势冲上桥头。');
+        }, 2200);
+      }
+    } else {
+      this.battleScene.setMachineGunFiring(false);
+    }
   }
 
   private handleBotDowned(bot: Bot, killedByPlayer: boolean): void {
