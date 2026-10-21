@@ -50,7 +50,6 @@ export class Bot {
   readonly hitMeshes: THREE.Mesh[];
 
   private readonly view: SoldierView;
-  private walkTime = 0;
 
   constructor(id: string, assets: SoldierAssets, faction: Faction, isKey: boolean, position: THREE.Vector3) {
     this.id = id;
@@ -59,7 +58,7 @@ export class Bot {
 
     this.view = createSoldier(assets, faction, isKey);
     this.group = this.view.group;
-    this.hitMeshes = [this.view.mesh];
+    this.hitMeshes = [this.view.upper, this.view.leftLeg, this.view.rightLeg];
 
     for (const mesh of this.hitMeshes) {
       mesh.userData.botId = id;
@@ -82,13 +81,13 @@ export class Bot {
     this.fireTimer = 0.8 + Math.random() * 1.4;
     this.retargetTimer = Math.random() * 0.8;
     this.target = null;
-    this.walkTime = Math.random() * 10;
     this.speed = faction === 'red' ? 1.25 + Math.random() * 0.55 : 0.7 + Math.random() * 0.35;
     this.laneX = (Math.random() - 0.5) * 1.9;
     if (isKey) this.laneX = (Math.random() - 0.5) * 1.2;
     this.group.visible = true;
     this.group.position.copy(position);
     this.group.rotation.set(0, faction === 'red' ? Math.PI : 0, 0);
+    this.view.reset();
     this.setPhase(0);
   }
 
@@ -123,6 +122,7 @@ export class Bot {
       return true;
     }
 
+    this.view.setMoving(false);
     this.alive = false;
     this.state = 'downed';
     this.deathTimer = 3.2;
@@ -133,6 +133,7 @@ export class Bot {
 
   fallOffBridge(side: number): void {
     if (!this.alive && this.state === 'falling') return;
+    this.view.setMoving(false);
     this.alive = false;
     this.hp = 0;
     this.state = 'falling';
@@ -168,6 +169,8 @@ export class Bot {
     if (!this.alive) return;
 
     if (this.state === 'retreat') {
+      this.view.setMoving(true);
+      this.view.update(dt);
       this.group.position.z -= 3.2 * dt;
       if (this.group.position.z < -58) {
         this.group.visible = false;
@@ -191,12 +194,9 @@ export class Bot {
     }
 
     const moving = distance > 0.4 && this.state === 'advance';
-    if (moving) {
-      this.walkTime += dt * 7;
-      this.group.position.y = 8 + Math.abs(Math.sin(this.walkTime)) * 0.035;
-    } else {
-      this.group.position.y = 8;
-    }
+    this.view.setMoving(moving);
+    this.view.update(dt);
+    this.group.position.y = 8;
   }
 
   dispose(): void {

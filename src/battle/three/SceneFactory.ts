@@ -29,8 +29,8 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   const height = Math.max(1, host.clientHeight || window.innerHeight);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x090f13);
-  scene.fog = new THREE.FogExp2(0x0a1115, 0.012);
+  scene.background = new THREE.Color(0x121b1e);
+  scene.fog = new THREE.FogExp2(0x182326, 0.017);
 
   const camera = new THREE.PerspectiveCamera(72, width / height, 0.1, 520);
   camera.rotation.order = 'YXZ';
@@ -141,7 +141,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   const waterMaterial = track(
     new THREE.MeshBasicMaterial({
       map: waterTexture,
-      color: 0x6fa4b3,
+      color: 0x8e8774,
       fog: true,
     }),
   );
@@ -156,7 +156,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       map: woodDiffuse,
       normalMap: woodNormal,
       roughnessMap: woodRoughness,
-      color: 0x9b8974,
+      color: 0x8a7965,
       roughness: 1,
       metalness: 0.04,
     }),
@@ -166,7 +166,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       map: woodDiffuse,
       normalMap: woodNormal,
       roughnessMap: woodRoughness,
-      color: 0xb49a7a,
+      color: 0x9c8468,
       roughness: 1,
       metalness: 0.02,
     }),
@@ -468,6 +468,48 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   addMountainInstances(rockMountainTransforms, rockMaterial);
   addMountainInstances(darkMountainTransforms, mountainMaterial);
 
+  // Wet jungle foliage on the gorge walls, matching the reference material.
+  const foliageGeometry = track(new THREE.IcosahedronGeometry(1, 0));
+  const foliageMaterials = [
+    track(new THREE.MeshStandardMaterial({ color: 0x2d4636, roughness: 1 })),
+    track(new THREE.MeshStandardMaterial({ color: 0x3c5942, roughness: 1 })),
+  ];
+  const foliageTransforms: Array<Array<{
+    x: number;
+    y: number;
+    z: number;
+    scale: number;
+  }>> = [[], []];
+  for (let i = 0; i < 42; i += 1) {
+    const side = i % 2 === 0 ? -1 : 1;
+    foliageTransforms[i % 2].push({
+      x: side * (18 + Math.random() * 18),
+      y: 5 + Math.random() * 14,
+      z: -60 + Math.random() * 120,
+      scale: 1 + Math.random() * 2.6,
+    });
+  }
+  foliageTransforms.forEach((transforms, materialIndex) => {
+    const mesh = new THREE.InstancedMesh(
+      foliageGeometry,
+      foliageMaterials[materialIndex],
+      transforms.length,
+    );
+    transforms.forEach((transform, index) => {
+      instanceDummy.position.set(transform.x, transform.y, transform.z);
+      instanceDummy.rotation.set(
+        Math.random() * 0.4,
+        Math.random() * Math.PI,
+        Math.random() * 0.4,
+      );
+      instanceDummy.scale.setScalar(transform.scale);
+      instanceDummy.updateMatrix();
+      mesh.setMatrixAt(index, instanceDummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    scene.add(mesh);
+  });
+
   // Rain
   const rainCount = 760;
   const rainPositions = new Float32Array(rainCount * 3);
@@ -620,12 +662,12 @@ function createWaterTexture(): THREE.CanvasTexture {
     return new THREE.CanvasTexture(canvas);
   }
 
-  context.fillStyle = '#0a2731';
+  context.fillStyle = '#3d3b31';
   context.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 90; i += 1) {
     const y = Math.random() * 256;
     const alpha = 0.035 + Math.random() * 0.09;
-    context.strokeStyle = `rgba(140, 210, 220, ${alpha})`;
+    context.strokeStyle = `rgba(170, 174, 146, ${alpha})`;
     context.lineWidth = 1 + Math.random() * 1.5;
     context.beginPath();
     context.moveTo(0, y);
