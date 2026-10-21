@@ -1,0 +1,171 @@
+import { expect, test } from '@playwright/test';
+
+test('walks from the introduction to the battle shell and back', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.locator('h1.intro-title')).toContainText('长征');
+  await expect(page.getByTestId('intro-next')).toBeVisible();
+  await page.getByTestId('intro-next').click();
+
+  await expect(page.locator('[data-battle-id]')).toHaveCount(6);
+  await expect(page.getByTestId('battle-card-luding')).toBeVisible();
+
+  await page.getByTestId('battle-card-xiangjiang').click({ force: true });
+  await expect(page.getByTestId('coming-soon')).toBeVisible();
+  await expect(page.getByTestId('coming-soon')).toContainText('即将开放');
+
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-loading')).toBeVisible();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('canvas')).toBeVisible();
+
+  await expect(page.getByTestId('pause-overlay')).not.toHaveClass(/is-open/);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('pause-overlay')).toHaveClass(/is-open/);
+
+  await page.getByTestId('pause-resume').click();
+  await expect(page.getByTestId('pause-overlay')).not.toHaveClass(/is-open/);
+
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.keyboard.press('Escape');
+  await page.getByTestId('pause-exit').click();
+
+  await expect(page.locator('[data-battle-id]')).toHaveCount(6);
+});
+
+test('battle deploys bots and exposes the HUD', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator('[data-hud="phase"]')).toContainText('奔袭桥头');
+
+  const red = Number(await page.locator('[data-hud="red"]').textContent());
+  const kmt = Number(await page.locator('[data-hud="kmt"]').textContent());
+  expect(red + kmt).toBeGreaterThanOrEqual(30);
+  expect(red + kmt).toBeLessThanOrEqual(40);
+  expect(red).toBeGreaterThan(kmt);
+});
+
+test('player can lock the pointer, move, and fire', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  const startZ = await page.evaluate(
+    () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.z,
+  );
+
+  await page.mouse.click(640, 360);
+  await page.waitForTimeout(250);
+  const locked = await page.evaluate(
+    () => (window as unknown as { __battleDebug: any }).__battleDebug.player.isLocked,
+  );
+  expect(locked).toBe(true);
+
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(800);
+  await page.keyboard.up('KeyW');
+  const endZ = await page.evaluate(
+    () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.z,
+  );
+  expect(endZ).toBeLessThan(startZ);
+
+  const ammoBefore = Number(await page.locator('[data-hud="ammo-mag"]').textContent());
+  await page.mouse.click(640, 360);
+  await page.waitForTimeout(250);
+  const ammoAfter = Number(await page.locator('[data-hud="ammo-mag"]').textContent());
+  expect(ammoAfter).toBeLessThan(ammoBefore);
+});
+
+test('phase progression through the director reaches the result screen', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  const panel = page.getByTestId('debug-panel');
+  await expect(panel).toBeVisible();
+
+  for (let i = 0; i < 4; i += 1) {
+    await panel.locator('[data-debug-action="skip"]').click();
+    await page.waitForTimeout(250);
+  }
+
+  await expect(page.locator('.result-shell h1')).toHaveText('夺桥成功', { timeout: 8_000 });
+  await expect(page.getByTestId('result-back')).toBeVisible();
+});
+
+test('player is downed, sees the countdown, and respawns', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => {
+    const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
+    debug.bots.setKmtModifiers(0, 0.1);
+    debug.player.takeDamage(100);
+  });
+
+  const down = page.locator('[data-hud="down"]');
+  await expect(down).toHaveClass(/is-visible/);
+  await page.waitForTimeout(5_600);
+  await expect(down).not.toHaveClass(/is-visible/);
+
+  const state = await page.evaluate(() => {
+    const player = (window as unknown as { __battleDebug: any }).__battleDebug.player;
+    return { hp: player.hp, downed: player.isDowned };
+  });
+  expect(state.downed).toBe(false);
+  expect(state.hp).toBe(100);
+});
+
+test('subtitles can be disabled from the pause menu', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await page.keyboard.press('Escape');
+  const pause = page.getByTestId('pause-overlay');
+  await expect(pause).toHaveClass(/is-open/);
+
+  await pause.locator('[data-setting="subtitles"]').uncheck();
+  await page.evaluate(() => {
+    (window as unknown as { __battleDebug: any }).__battleDebug.director.debugSkipPhase();
+  });
+
+  await expect(page.locator('[data-hud="subtitle"]')).not.toHaveClass(/is-visible/);
+});
+
+test('debug victory reaches the result screen', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('debug-panel')).toBeVisible();
+
+  await page.getByTestId('debug-panel').locator('[data-debug-action="victory"]').click();
+
+  await expect(page.locator('.result-shell h1')).toHaveText('夺桥成功', { timeout: 8_000 });
+  await expect(page.getByTestId('result-replay')).toBeVisible();
+
+  await page.getByTestId('result-back').click();
+  await expect(page.locator('[data-battle-id]')).toHaveCount(6);
+});
+
+test('refreshing returns to the introduction', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('intro-next').click();
+  await expect(page.locator('[data-battle-id]')).toHaveCount(6);
+
+  await page.reload();
+
+  await expect(page.locator('h1.intro-title')).toContainText('长征');
+  await expect(page.getByTestId('intro-next')).toBeVisible();
+});

@@ -1,0 +1,379 @@
+import * as THREE from 'three';
+import type { BattleSummary } from '../../app/AppState';
+import type { Settings } from '../../utils/storage';
+import { NARRATION } from '../../content/narration';
+import { PHASES } from '../../content/phases';
+import { BattleDirector } from '../core/BattleDirector';
+import { BattleStats } from '../core/BattleStats';
+import { PLAYER_MAX_HP } from '../core/constants';
+import type { BattleSnapshot, Faction } from '../core/types';
+import { createBattleScene, type BattleScene } from '../three/SceneFactory';
+import { AudioManager } from './AudioManager';
+import { BotManager, type Bot, type BotWorld } from './BotManager';
+import { HUD } from './HUD';
+import { NarrationPlayer } from './NarrationPlayer';
+import { PlayerController } from './PlayerController';
+import { WeaponSystem } from './WeaponSystem';
+
+export interface BattleRuntimeOptions {
+  settings: Settings;
+  onVictory: (summary: BattleSummary) => void;
+  onExit: () => void;
+  onRestart: () => void;
+  onError: (message: string) => void;
+  onSettingsChange: (settings: Settings) => void;
+}
+
+export class BattleRuntime {
+  private readonly host: HTMLElement;
+  private readonly options: BattleRuntimeOptions;
+  private readonly battleScene: BattleScene;
+  private readonly player: PlayerController;
+  private readonly weapon: WeaponSystem;
+  private readonly bots: BotManager;
+  private readonly hud: HUD;
+  private readonly audio: AudioManager;
+  private readonly narration: NarrationPlayer;
+  private readonly director: BattleDirector;
+  private readonly stats = new BattleStats();
+  private readonly world: BotWorld;
+  private settings: Settings;
+  private readonly debugEnabled: boolean;
+
+  private paused = false;
+  private ended = false;
+  private disposed = false;
+  private rafId = 0;
+  private lastTime = 0;
+  private fps = 0;
+  private fpsAccumulator = 0;
+  private fpsFrames = 0;
+  private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+  private pixelRatio = this.maxPixelRatio;
+  private lowFpsWindows = 0;
+  private highFpsWindows = 0;
+  private victoryTimer: number | null = null;
+
+  constructor(host: HTMLElement, options: BattleRuntimeOptions) {
+    this.host = host;
+    this.options = options;
+    this.settings = { ...options.settings };
+    this.debugEnabled =
+      import.meta.env.DEV && new URLSearchParams(window.location.search).get('debug') === '1';
+
+    this.battleScene = createBattleScene(host);
+    this.battleScene.setPixelRatio(this.pixelRatio);
+    this.audio = new AudioManager(this.settings);
+    this.narration = new NarrationPlayer(this.audio, this.settings, {
+      onLineStart: (text) => this.hud.setSubtitle(text),
+      onLineEnd: () => this.hud.hideSubtitle(),
+    });
+
+    this.hud = new HUD(host, {
+      settings: this.settings,
+      onResume: () => this.resume(),
+      onRestart: () => this.restart(),
+      onExit: () => this.exit(),
+      onSettingsChange: (settings) => this.updateSettings(settings),
+      onDebugSkip: () => this.director.debugSkipPhase(),
+      onDebugVictory: () => this.forceVictory(),
+    });
+    this.hud.setDebugEnabled(this.debugEnabled);
+
+    this.bots = new BotManager({
+      scene: this.battleScene.scene,
+      onBotDowned: (bot, killedByPlayer) => this.handleBotDowned(bot, killedByPlayer),
+    });
+
+    this.player = new PlayerController(
+      this.battleScene.camera,
+      this.battleScene.renderer.domElement,
+      this.battleScene.bounds,
+      this.battleScene.redSpawn,
+      {
+        onShoot: () => this.weapon.tryShoot(),
+        onReload: () => this.weapon.reload(),
+        onDamage: () => this.hud.showDamage(),
+        onDown: () => this.handlePlayerDown(),
+        onRespawn: () => this.handlePlayerRespawn(),
+        onPauseRequest: () => this.pause(),
+        onLockChange: (locked) => this.hud.setLocked(locked),
+        onFootstep: () => this.audio.playFootstep(),
+      },
+    );
+
+    this.weapon = new WeaponSystem(
+      this.battleScene.camera,
+      () => this.bots.getRaycastTargets(),
+      {
+        onShot: () => {
+          this.stats.recordShot();
+          this.audio.playRifle();
+        },
+        onHit: (botId) => {
+          this.stats.recordHit();
+          this.bots.hitBot(botId, 10, 'player');
+          this.hud.showHitMarker();
+          this.audio.playRicochet();
+        },
+        onAmmoChange: () => undefined,
+      },
+    );
+
+    this.world = {
+      playerPosition: new THREE.Vector3(),
+      playerAlive: true,
+      playerDowned: false,
+      damagePlayer: (amount) => this.player.takeDamage(amount),
+      playBotShot: (_faction: Faction, position: THREE.Vector3) => {
+        if (Math.random() < 0.22) {
+          const dx = position.x - this.player.position.x;
+          this.audio.playDistantShot(THREE.MathUtils.clamp(dx / 8, -1, 1));
+        }
+      },
+    };
+
+    this.director = new BattleDirector(PHASES, {
+      spawn: (faction, count, key) => this.bots.spawn(faction, count, key),
+      onPhase: (phase, index) => this.handlePhase(phase.name, phase.narrationId, index),
+      onModifiers: (accuracy, fireRate) => this.bots.setKmtModifiers(accuracy, fireRate),
+      onRetreatKmt: () => this.bots.retreatKmt(),
+      onVictory: () => this.handleVictory(),
+    });
+
+    this.resize();
+    window.addEventListener('resize', this.handleResize);
+    this.host.addEventListener('pointerdown', this.handleFirstPointer, { once: true });
+    this.host.addEventListener('click', this.handleFirstPointer, { once: true });
+
+    if (this.debugEnabled) {
+      (window as unknown as { __battleDebug?: unknown }).__battleDebug = {
+        scene: this.battleScene.scene,
+        camera: this.battleScene.camera,
+        renderer: this.battleScene.renderer,
+        player: this.player,
+        bots: this.bots,
+        director: this.director,
+      };
+    }
+  }
+
+  start(): void {
+    this.lastTime = performance.now();
+    this.rafId = requestAnimationFrame(this.loop);
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    cancelAnimationFrame(this.rafId);
+    if (this.victoryTimer !== null) window.clearTimeout(this.victoryTimer);
+    this.victoryTimer = null;
+    window.removeEventListener('resize', this.handleResize);
+    this.host.removeEventListener('pointerdown', this.handleFirstPointer);
+    this.host.removeEventListener('click', this.handleFirstPointer);
+    this.narration.dispose();
+    this.hud.dispose();
+    this.weapon.dispose();
+    this.player.dispose();
+    this.bots.dispose();
+    this.audio.dispose();
+    this.battleScene.dispose();
+  }
+
+  private loop = (now: number): void => {
+    if (this.disposed) return;
+    const dt = Math.min(0.05, Math.max(0, (now - this.lastTime) / 1000));
+    this.lastTime = now;
+
+    if (!this.paused && !this.ended) {
+      this.director.update(dt);
+      this.player.update(dt);
+      this.world.playerPosition.copy(this.player.position);
+      this.world.playerAlive = this.player.isAlive;
+      this.world.playerDowned = this.player.isDowned;
+      this.bots.update(dt, this.world);
+      this.weapon.update(dt);
+      this.battleScene.update(dt);
+      this.updateFps(dt);
+    }
+
+    this.battleScene.renderer.render(this.battleScene.scene, this.battleScene.camera);
+    this.updateHud();
+    this.rafId = requestAnimationFrame(this.loop);
+  };
+
+  private updateHud(): void {
+    const director = this.director.snapshot;
+    const weapon = this.weapon.state;
+    const snapshot: BattleSnapshot = {
+      phaseName: director.phaseName,
+      objective: director.objective,
+      redAlive: director.redAlive,
+      kmtAlive: director.kmtAlive,
+      playerHp: this.player.hp,
+      playerMaxHp: PLAYER_MAX_HP,
+      ammoMag: weapon.mag,
+      ammoReserve: weapon.reserve,
+      reloading: weapon.reloading,
+      paused: this.paused,
+      downed: this.player.isDowned,
+      downSecondsLeft: this.player.downSecondsLeft,
+    };
+    this.hud.update(snapshot);
+
+    if (this.debugEnabled) {
+      this.hud.updateDebug({
+        phase: `${director.phaseIndex + 1}/4 ${director.phaseName}`,
+        red: director.redAlive,
+        kmt: director.kmtAlive,
+        fps: `${this.fps} @${this.pixelRatio.toFixed(2)}`,
+        drawCalls: this.battleScene.renderer.info.render.calls,
+        accuracy: director.accuracy,
+        fireRate: director.fireRate,
+      });
+    }
+  }
+
+  private handlePhase(phaseName: string, narrationId: string, index: number): void {
+    this.bots.setPhase(index);
+    const text = NARRATION[narrationId];
+    if (text) {
+      this.narration.speak(text);
+    }
+    this.audio.playUi();
+    this.hud.setSubtitle(text ?? phaseName);
+  }
+
+  private handleBotDowned(bot: Bot, killedByPlayer: boolean): void {
+    this.director.notifyDowned(bot.faction, bot.isKey);
+    if (killedByPlayer) {
+      this.stats.recordKill();
+    }
+  }
+
+  private handlePlayerDown(): void {
+    this.stats.recordDeath();
+    this.director.notifyPlayerDowned();
+    this.hud.showDown(this.player.downSecondsLeft);
+    this.audio.playExplosion();
+  }
+
+  private handlePlayerRespawn(): void {
+    this.weapon.refill();
+    this.hud.hideDown();
+  }
+
+  private handleVictory(): void {
+    if (this.ended) return;
+    this.ended = true;
+    this.player.setEnabled(false);
+    this.weapon.setEnabled(false);
+    this.hud.setSubtitle('红军夺桥成功，泸定桥被牢牢控制。');
+    this.audio.playVictory();
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+    this.stats.finish();
+    const summary: BattleSummary = {
+      ...this.stats.toData(),
+      accuracy: this.stats.accuracy,
+    };
+    this.victoryTimer = window.setTimeout(() => {
+      this.victoryTimer = null;
+      this.options.onVictory(summary);
+    }, 2200);
+  }
+
+  private forceVictory(): void {
+    if (!this.debugEnabled) return;
+    this.handleVictory();
+  }
+
+  private pause(): void {
+    if (this.paused || this.ended || this.disposed) return;
+    this.paused = true;
+    this.player.setPaused(true);
+    this.hud.setPaused(true);
+    this.narration.pause();
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  }
+
+  private resume(): void {
+    if (!this.paused || this.ended || this.disposed) return;
+    this.paused = false;
+    this.hud.setPaused(false);
+    this.player.setPaused(false);
+    this.narration.resume();
+    this.audio.unlock();
+    this.player.lock();
+  }
+
+  private restart(): void {
+    this.options.onRestart();
+  }
+
+  private exit(): void {
+    this.narration.cancel(false);
+    this.options.onExit();
+  }
+
+  private updateSettings(settings: Settings): void {
+    this.settings = { ...settings };
+    this.audio.setSettings(this.settings);
+    this.narration.setSettings(this.settings);
+    this.options.onSettingsChange({ ...this.settings });
+  }
+
+  private handleResize = (): void => {
+    this.resize();
+  };
+
+  private handleFirstPointer = (): void => {
+    this.audio.unlock();
+  };
+
+  private resize(): void {
+    this.battleScene.resize(
+      Math.max(1, this.host.clientWidth),
+      Math.max(1, this.host.clientHeight),
+    );
+  }
+
+  private updateFps(dt: number): void {
+    this.fpsAccumulator += dt;
+    this.fpsFrames += 1;
+    if (this.fpsAccumulator < 2) return;
+
+    const measured = this.fpsFrames / this.fpsAccumulator;
+    this.fps = Math.round(measured);
+    this.fpsAccumulator = 0;
+    this.fpsFrames = 0;
+
+    if (measured < 36 && this.pixelRatio > 0.6) {
+      this.lowFpsWindows += 1;
+      this.highFpsWindows = 0;
+    } else if (measured > 55) {
+      this.highFpsWindows += 1;
+      this.lowFpsWindows = 0;
+    } else {
+      this.lowFpsWindows = 0;
+      this.highFpsWindows = 0;
+    }
+
+    if (this.lowFpsWindows >= 1) {
+      this.setPixelRatio(Math.max(0.6, this.pixelRatio - 0.2));
+      this.lowFpsWindows = 0;
+    } else if (this.highFpsWindows >= 3) {
+      this.setPixelRatio(Math.min(this.maxPixelRatio, this.pixelRatio + 0.1));
+      this.highFpsWindows = 0;
+    }
+  }
+
+  private setPixelRatio(ratio: number): void {
+    this.pixelRatio = Math.max(0.6, Math.min(this.maxPixelRatio, ratio));
+    this.battleScene.setPixelRatio(this.pixelRatio);
+  }
+}

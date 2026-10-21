@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vite/
+coverage/
+test-results/
+playwright-report/
+shots/
+.pages-test/
+art/
+*.local
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+:root {
+  --ink-950: #070c0f;
+  --ink-900: #0b1217;
+  --ink-850: #0e171d;
+  --ink-800: #121e25;
+  --ink-700: #172832;
+  --paper: #efe6d4;
+  --paper-dim: #c8c0b1;
+  --paper-muted: #9ca3a4;
+  --red-900: #6f1f1a;
+  --red-700: #8f2a22;
+  --red-500: #b23a2f;
+  --red-400: #cc5144;
+  --gold-500: #c7a76a;
+  --gold-400: #ddc28a;
+  --gold-700: #8d7447;
+  --line: rgba(199, 167, 106, 0.22);
+  --line-strong: rgba(199, 167, 106, 0.45);
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
+  --font-sans: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-mono: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --max-width: 1180px;
+}

@@ -1,0 +1,228 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--ink-950);
+  color: var(--paper);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p,
+blockquote {
+  margin-top: 0;
+}
+
+h1 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+::selection {
+  background: var(--red-500);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold-400);
+  outline-offset: 3px;
+}
+
+.screen {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.eyebrow {
+  margin: 0 0 18px;
+  color: var(--gold-500);
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.hero-rule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.hero-rule::before {
+  content: "";
+  width: 56px;
+  height: 1px;
+  background: var(--gold-500);
+}
+
+.hero-rule span {
+  width: 5px;
+  height: 5px;
+  background: var(--red-500);
+  transform: rotate(45deg);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  color: var(--paper);
+  background: transparent;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  transition:
+    transform 0.3s var(--ease-out),
+    border-color 0.3s,
+    background-color 0.3s,
+    color 0.3s,
+    box-shadow 0.3s;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  border-color: rgba(221, 194, 138, 0.5);
+  background: linear-gradient(135deg, var(--red-700), var(--red-500));
+  color: var(--paper);
+  box-shadow: 0 12px 36px rgba(143, 42, 34, 0.3);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--red-500), var(--red-400));
+  box-shadow: 0 16px 44px rgba(143, 42, 34, 0.42);
+}
+
+.btn-ghost {
+  border-color: var(--line);
+  color: var(--paper-dim);
+}
+
+.btn-ghost:hover {
+  border-color: var(--line-strong);
+  color: var(--paper);
+}
+
+.btn-large {
+  padding: 18px 34px;
+  font-size: 16px;
+  letter-spacing: 0.14em;
+}
+
+.btn-arrow {
+  transition: transform 0.3s var(--ease-out);
+}
+
+.btn:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+.btn-back {
+  margin-bottom: 40px;
+  padding-left: 0;
+  border-color: transparent;
+  color: var(--paper-muted);
+}
+
+.btn-back:hover {
+  color: var(--gold-400);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  z-index: 50;
+  padding: 11px 20px;
+  border: 1px solid var(--line-strong);
+  background: rgba(14, 23, 29, 0.94);
+  color: var(--gold-400);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s var(--ease-out);
+  pointer-events: none;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ink-950);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #26343c;
+  border: 2px solid var(--ink-950);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

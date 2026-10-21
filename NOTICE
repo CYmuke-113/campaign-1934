@@ -1,0 +1,15 @@
+Campaign 1934
+Copyright 2026 TJU1895-EFZ
+
+This product includes third-party software and assets:
+
+- Three.js (MIT)
+- Vite (MIT)
+- TypeScript (Apache-2.0)
+- Vitest (MIT)
+- Playwright (Apache-2.0)
+- jsdom (MIT)
+- Poly Haven textures (CC0 1.0): Wooden Planks, Rusty Metal, Dark Rock
+- OpenGameArt "Gunshot Sounds" by Tabasco (CC0 1.0)
+
+See docs/ASSET_LICENSES.md for source links and license details.
