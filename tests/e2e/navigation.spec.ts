@@ -33,8 +33,8 @@ test('walks from the introduction to the battle shell and back', async ({ page }
   await expect(page.locator('[data-battle-id]')).toHaveCount(6);
 });
 
-test('battle deploys bots and exposes the HUD', async ({ page }) => {
-  await page.goto('/');
+test('battle deploys bots without showing faction counts', async ({ page }) => {
+  await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
 
@@ -42,11 +42,14 @@ test('battle deploys bots and exposes the HUD', async ({ page }) => {
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('[data-hud="phase"]')).toContainText('奔袭桥头');
 
-  const red = Number(await page.locator('[data-hud="red"]').textContent());
-  const kmt = Number(await page.locator('[data-hud="kmt"]').textContent());
-  expect(red + kmt).toBeGreaterThanOrEqual(30);
-  expect(red + kmt).toBeLessThanOrEqual(40);
-  expect(red).toBeGreaterThan(kmt);
+  const counts = await page.evaluate(() => {
+    const snapshot = (window as unknown as { __battleDebug: any }).__battleDebug.director.snapshot;
+    return { red: snapshot.redAlive, kmt: snapshot.kmtAlive };
+  });
+  expect(counts.red + counts.kmt).toBeGreaterThanOrEqual(30);
+  expect(counts.red + counts.kmt).toBeLessThanOrEqual(40);
+  expect(counts.red).toBeGreaterThan(counts.kmt);
+  await expect(page.locator('.hud-counts')).toHaveCount(0);
 });
 
 test('player can lock the pointer, move, and fire', async ({ page }) => {

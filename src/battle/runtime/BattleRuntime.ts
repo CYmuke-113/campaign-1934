@@ -214,8 +214,6 @@ export class BattleRuntime {
     const snapshot: BattleSnapshot = {
       phaseName: director.phaseName,
       objective: director.objective,
-      redAlive: director.redAlive,
-      kmtAlive: director.kmtAlive,
       playerHp: this.player.hp,
       playerMaxHp: PLAYER_MAX_HP,
       ammoMag: weapon.mag,
@@ -230,8 +228,6 @@ export class BattleRuntime {
     if (this.debugEnabled) {
       this.hud.updateDebug({
         phase: `${director.phaseIndex + 1}/4 ${director.phaseName}`,
-        red: director.redAlive,
-        kmt: director.kmtAlive,
         fps: `${this.fps} @${this.pixelRatio.toFixed(2)}`,
         drawCalls: this.battleScene.renderer.info.render.calls,
         accuracy: director.accuracy,

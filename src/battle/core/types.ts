@@ -61,8 +61,6 @@ export interface DirectorCallbacks {
 export interface BattleSnapshot {
   phaseName: string;
   objective: string;
-  redAlive: number;
-  kmtAlive: number;
   playerHp: number;
   playerMaxHp: number;
   ammoMag: number;

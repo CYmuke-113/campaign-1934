@@ -20,8 +20,6 @@ export class HUD {
   private readonly debugPanel: HTMLElement;
   private readonly phaseName: HTMLElement;
   private readonly objective: HTMLElement;
-  private readonly redCount: HTMLElement;
-  private readonly kmtCount: HTMLElement;
   private readonly healthFill: HTMLElement;
   private readonly healthValue: HTMLElement;
   private readonly ammoMag: HTMLElement;
@@ -53,10 +51,6 @@ export class HUD {
             <span class="hud-phase-name" data-hud="phase">奔袭桥头</span>
           </div>
           <div class="hud-objective" data-hud="objective">观察对岸</div>
-        </div>
-        <div class="hud-counts">
-          <div class="hud-count red"><span>红军</span><strong data-hud="red">20</strong></div>
-          <div class="hud-count kmt"><span>敌军</span><strong data-hud="kmt">12</strong></div>
         </div>
       </div>
       <div class="crosshair"><span class="crosshair-dot"></span></div>
@@ -114,7 +108,6 @@ export class HUD {
       </div>
       <div class="debug-panel" data-testid="debug-panel">
         <div class="debug-row"><span>阶段</span><strong data-debug="phase">-</strong></div>
-        <div class="debug-row"><span>红军 / 敌军</span><strong data-debug="counts">-</strong></div>
         <div class="debug-row"><span>FPS / calls</span><strong data-debug="fps">-</strong></div>
         <div class="debug-row"><span>修正</span><strong data-debug="modifiers">-</strong></div>
         <div class="debug-actions">
@@ -129,8 +122,6 @@ export class HUD {
     this.debugPanel = this.query('[data-testid="debug-panel"]');
     this.phaseName = this.query('[data-hud="phase"]');
     this.objective = this.query('[data-hud="objective"]');
-    this.redCount = this.query('[data-hud="red"]');
-    this.kmtCount = this.query('[data-hud="kmt"]');
     this.healthFill = this.query('[data-hud="health-fill"]');
     this.healthValue = this.query('[data-hud="health-value"]');
     this.ammoMag = this.query('[data-hud="ammo-mag"]');
@@ -161,8 +152,6 @@ export class HUD {
   update(snapshot: BattleSnapshot): void {
     this.phaseName.textContent = snapshot.phaseName;
     this.objective.textContent = snapshot.objective;
-    this.redCount.textContent = String(snapshot.redAlive);
-    this.kmtCount.textContent = String(snapshot.kmtAlive);
 
     const healthPercent = Math.max(0, Math.min(100, (snapshot.playerHp / snapshot.playerMaxHp) * 100));
     this.healthFill.style.width = `${healthPercent}%`;
@@ -253,8 +242,6 @@ export class HUD {
 
   updateDebug(data: {
     phase: string;
-    red: number;
-    kmt: number;
     fps: string;
     drawCalls: number;
     accuracy: number;
@@ -262,7 +249,6 @@ export class HUD {
   }): void {
     if (!this.debugEnabled) return;
     this.setDebugField('phase', data.phase);
-    this.setDebugField('counts', `${data.red} / ${data.kmt}`);
     this.setDebugField('fps', `${data.fps} / ${data.drawCalls}`);
     this.setDebugField('modifiers', `${data.accuracy.toFixed(2)} / ${data.fireRate.toFixed(2)}`);
   }

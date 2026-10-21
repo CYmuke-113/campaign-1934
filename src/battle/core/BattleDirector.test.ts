@@ -158,6 +158,25 @@ describe('BattleDirector', () => {
     expect(snapshot.redAlive + snapshot.kmtAlive).toBeLessThanOrEqual(40);
   });
 
+  it('keeps replenishing both sides after heavy losses', () => {
+    const harness = createHarness(60);
+    for (let i = 0; i < 8; i += 1) {
+      harness.director.notifyDowned('red');
+    }
+    for (let i = 0; i < 6; i += 1) {
+      harness.director.notifyDowned('kmt');
+    }
+
+    for (let i = 0; i < 200; i += 1) {
+      harness.director.update(0.1);
+    }
+
+    const snapshot = harness.director.snapshot;
+    expect(snapshot.redAlive).toBeGreaterThanOrEqual(16);
+    expect(snapshot.kmtAlive).toBeGreaterThanOrEqual(10);
+    expect(snapshot.redAlive + snapshot.kmtAlive).toBeLessThanOrEqual(40);
+  });
+
   it('backfills a key assault bot after it is downed', () => {
     const harness = createHarness(10);
     const initialKeySpawns = harness.spawned.filter((item) => item.key).length;

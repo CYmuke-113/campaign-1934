@@ -26,6 +26,8 @@ interface PhaseRuntime {
   keyBackfillCooldown: number;
   keyBackfillNeeded: boolean;
   retreatTriggered: boolean;
+  sustainRedTimer: number;
+  sustainKmtTimer: number;
 }
 
 export class BattleDirector {
@@ -59,6 +61,8 @@ export class BattleDirector {
       keyBackfillCooldown: 0,
       keyBackfillNeeded: false,
       retreatTriggered: false,
+      sustainRedTimer: 0,
+      sustainKmtTimer: 0,
     };
     this.enterPhase(0);
   }
@@ -101,6 +105,8 @@ export class BattleDirector {
     this.totalElapsed += safeDt;
     this.runtime.emergencyCooldown = Math.max(0, this.runtime.emergencyCooldown - safeDt);
     this.runtime.keyBackfillCooldown = Math.max(0, this.runtime.keyBackfillCooldown - safeDt);
+    this.runtime.sustainRedTimer = Math.max(0, this.runtime.sustainRedTimer - safeDt);
+    this.runtime.sustainKmtTimer = Math.max(0, this.runtime.sustainKmtTimer - safeDt);
 
     const phaseUpdate = this.phaseController.update(safeDt);
     if (phaseUpdate.finished) {
@@ -113,6 +119,7 @@ export class BattleDirector {
 
     this.updateReinforcements(safeDt);
     this.enforceInvariants();
+    this.maintainBattlefield();
     this.maybeTriggerRetreat();
     this.flushPending();
   }
@@ -159,6 +166,8 @@ export class BattleDirector {
     this.runtime.keyBackfillCooldown = 0;
     this.runtime.keyBackfillNeeded = false;
     this.runtime.retreatTriggered = false;
+    this.runtime.sustainRedTimer = 0;
+    this.runtime.sustainKmtTimer = 0;
 
     this.accuracy = phase.kmt.accuracy;
     this.fireRate = phase.kmt.fireRate;
@@ -234,6 +243,24 @@ export class BattleDirector {
       this.spawnTo('red', 3);
       this.accuracy = Math.max(0.02, this.accuracy * 0.5);
       this.callbacks.onModifiers(this.accuracy, this.fireRate);
+    }
+  }
+
+  private maintainBattlefield(): void {
+    const phase = this.phaseController.current;
+
+    const redFloor = Math.max(12, phase.red.initial - 4);
+    if (this.runtime.sustainRedTimer <= 0 && this.redAlive < redFloor) {
+      const spawned = this.spawnTo('red', 1);
+      this.runtime.sustainRedTimer = spawned > 0 ? 2.5 : 4;
+    }
+
+    if (!this.phaseController.isLast) {
+      const kmtFloor = Math.max(6, phase.kmt.initial - 2);
+      if (this.runtime.sustainKmtTimer <= 0 && this.kmtAlive < kmtFloor) {
+        const spawned = this.spawnTo('kmt', 1);
+        this.runtime.sustainKmtTimer = spawned > 0 ? 3.5 : 5;
+      }
     }
   }
 
