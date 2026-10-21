@@ -3,6 +3,7 @@ import {
   PLAYER_DOWN_RESPAWN_SECONDS,
   PLAYER_MAX_HP,
 } from '../core/constants';
+import { isBlockedAt, type Collider } from '../core/collision';
 import type { BridgeBounds } from '../three/SceneFactory';
 
 export interface PlayerCallbacks {
@@ -24,6 +25,7 @@ export class PlayerController {
 
   private readonly domElement: HTMLElement;
   private readonly bounds: BridgeBounds;
+  private readonly colliders: Collider[];
   private readonly spawnPosition: THREE.Vector3;
   private readonly callbacks: PlayerCallbacks;
   private readonly keys = new Set<string>();
@@ -38,6 +40,9 @@ export class PlayerController {
   private footstepTimer = 0;
   private falling = false;
   private fallVelocity = 0;
+  private jumpOffset = 0;
+  private jumpVelocity = 0;
+  private grounded = true;
   private paused = false;
   private enabled = true;
   private locked = false;
@@ -48,12 +53,14 @@ export class PlayerController {
     camera: THREE.PerspectiveCamera,
     domElement: HTMLElement,
     bounds: BridgeBounds,
+    colliders: Collider[],
     spawnPosition: THREE.Vector3,
     callbacks: PlayerCallbacks,
   ) {
     this.camera = camera;
     this.domElement = domElement;
     this.bounds = bounds;
+    this.colliders = colliders;
     this.spawnPosition = spawnPosition.clone();
     this.callbacks = callbacks;
 
@@ -152,6 +159,16 @@ export class PlayerController {
       return;
     }
 
+    if (!this.grounded) {
+      this.jumpVelocity -= 14 * dt;
+      this.jumpOffset += this.jumpVelocity * dt;
+      if (this.jumpOffset <= 0) {
+        this.jumpOffset = 0;
+        this.jumpVelocity = 0;
+        this.grounded = true;
+      }
+    }
+
     let forwardInput = 0;
     let rightInput = 0;
     if (this.keys.has('KeyW')) forwardInput += 1;
@@ -171,8 +188,14 @@ export class PlayerController {
       this.movement.normalize();
       const sprinting = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
       const speed = this.crouched ? 2.1 : sprinting ? 6.2 : 4.1;
-      this.camera.position.x += this.movement.x * speed * dt;
-      this.camera.position.z += this.movement.z * speed * dt;
+      const nextX = this.camera.position.x + this.movement.x * speed * dt;
+      const nextZ = this.camera.position.z + this.movement.z * speed * dt;
+      if (!isBlockedAt(this.colliders, nextX, this.camera.position.z, this.jumpOffset)) {
+        this.camera.position.x = nextX;
+      }
+      if (!isBlockedAt(this.colliders, this.camera.position.x, nextZ, this.jumpOffset)) {
+        this.camera.position.z = nextZ;
+      }
       this.footstepTimer -= dt;
       if (this.footstepTimer <= 0) {
         this.footstepTimer = sprinting ? 0.32 : 0.48;
@@ -184,13 +207,16 @@ export class PlayerController {
 
     this.clampToBattlefield();
     if (this.falling) return;
-    this.camera.position.y = this.bounds.deckY + this.eyeHeight;
+    this.camera.position.y = this.bounds.deckY + this.eyeHeight + this.jumpOffset;
     this.applyRotation();
   }
 
   teleportTo(x: number, z: number): void {
     this.falling = false;
     this.fallVelocity = 0;
+    this.jumpOffset = 0;
+    this.jumpVelocity = 0;
+    this.grounded = true;
     this.yaw = 0;
     this.pitch = -0.1;
     this.camera.position.set(x, this.bounds.deckY + this.eyeHeight, z);
@@ -210,6 +236,9 @@ export class PlayerController {
     this.downed = false;
     this.falling = false;
     this.fallVelocity = 0;
+    this.jumpOffset = 0;
+    this.jumpVelocity = 0;
+    this.grounded = true;
     this.hp = PLAYER_MAX_HP;
     this.downEndsAt = 0;
     this.yaw = 0;
@@ -266,7 +295,7 @@ export class PlayerController {
       return;
     }
 
-    this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -9, 9);
+    this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -14, 14);
   }
 
   private applyRotation(): void {
@@ -282,6 +311,14 @@ export class PlayerController {
     if (event.code === 'KeyR') {
       event.preventDefault();
       if (!event.repeat) this.callbacks.onReload();
+      return;
+    }
+    if (event.code === 'Space') {
+      event.preventDefault();
+      if (!event.repeat && this.grounded && !this.paused && !this.downed && this.enabled) {
+        this.jumpVelocity = 6;
+        this.grounded = false;
+      }
       return;
     }
     if (event.code === 'KeyC') {

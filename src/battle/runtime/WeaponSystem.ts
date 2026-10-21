@@ -40,6 +40,7 @@ export class WeaponSystem {
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
     private readonly getTargets: () => THREE.Object3D[],
+    private readonly getBlockers: () => THREE.Object3D[],
     private readonly tracers: TracerSystem,
     private readonly callbacks: WeaponCallbacks,
   ) {
@@ -178,12 +179,15 @@ export class WeaponSystem {
     origin.y -= 0.12;
     const endPoint = origin.clone().add(direction.clone().multiplyScalar(80));
 
-    const intersections = this.raycaster.intersectObjects(this.getTargets(), false);
+    const intersections = this.raycaster.intersectObjects(
+      [...this.getTargets(), ...this.getBlockers()],
+      false,
+    );
     for (const intersection of intersections) {
       const botId = intersection.object.userData.botId as string | undefined;
       const faction = intersection.object.userData.faction as string | undefined;
-      if (!botId) continue;
       endPoint.copy(intersection.point);
+      if (!botId) break;
       if (faction === 'kmt') {
         this.callbacks.onHit(botId);
       }

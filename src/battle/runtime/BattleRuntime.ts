@@ -87,6 +87,7 @@ export class BattleRuntime {
 
     this.bots = new BotManager({
       scene: this.battleScene.scene,
+      colliders: this.battleScene.colliders,
       onBotDowned: (bot, killedByPlayer) => this.handleBotDowned(bot, killedByPlayer),
     });
 
@@ -94,6 +95,7 @@ export class BattleRuntime {
       this.battleScene.camera,
       this.battleScene.renderer.domElement,
       this.battleScene.bounds,
+      this.battleScene.colliders,
       this.battleScene.redSpawn,
       {
         onTriggerDown: () => this.weapon.setTrigger(true),
@@ -114,6 +116,7 @@ export class BattleRuntime {
     this.weapon = new WeaponSystem(
       this.battleScene.camera,
       () => this.bots.getRaycastTargets(),
+      () => this.battleScene.bulletBlockers,
       this.tracers,
       {
         onShot: () => {
@@ -146,6 +149,20 @@ export class BattleRuntime {
       },
       spawnMuzzleFlash: (position: THREE.Vector3) => {
         this.tracers.spawnMuzzleFlash(position);
+      },
+      hasLineOfSight: (from: THREE.Vector3, to: THREE.Vector3) => {
+        const direction = to.clone().sub(from);
+        const distance = direction.length();
+        if (distance < 0.01) return true;
+        const raycaster = new THREE.Raycaster(
+          from,
+          direction.normalize(),
+          0.05,
+          Math.max(0.05, distance - 0.35),
+        );
+        return (
+          raycaster.intersectObjects(this.battleScene.bulletBlockers, false).length === 0
+        );
       },
     };
 

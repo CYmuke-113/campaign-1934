@@ -123,6 +123,23 @@ test('rifle uses automatic fire and reloads automatically when empty', async ({ 
   expect(result.afterReload.reserve).toBe(110);
 });
 
+test('player can jump with the space key', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  const before = await page.evaluate(
+    () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.y,
+  );
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(120);
+  const during = await page.evaluate(
+    () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.y,
+  );
+  expect(during).toBeGreaterThan(before);
+});
+
 test('player can fall off the bridge and see the fall-down state', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();

@@ -12,6 +12,7 @@ function createWorld(): BotWorld {
     playBotShot: vi.fn(),
     spawnTracer: vi.fn(),
     spawnMuzzleFlash: vi.fn(),
+    hasLineOfSight: () => true,
   };
 }
 

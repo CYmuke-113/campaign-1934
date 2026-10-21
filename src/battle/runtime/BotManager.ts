@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SHOT_DAMAGE } from '../core/constants';
+import { isBlockedAt, type Collider } from '../core/collision';
 import type { BattleZone, Faction } from '../core/types';
 import {
   createSoldier,
@@ -16,10 +17,12 @@ export interface BotWorld {
   playBotShot(faction: Faction, position: THREE.Vector3): void;
   spawnTracer(from: THREE.Vector3, to: THREE.Vector3): void;
   spawnMuzzleFlash(position: THREE.Vector3): void;
+  hasLineOfSight(from: THREE.Vector3, to: THREE.Vector3): boolean;
 }
 
 export interface BotManagerOptions {
   scene: THREE.Scene;
+  colliders?: Collider[];
   onBotDowned: (bot: Bot, killedByPlayer: boolean) => void;
 }
 
@@ -262,6 +265,7 @@ export class Bot {
 export class BotManager {
   private readonly assets: SoldierAssets;
   private readonly scene: THREE.Scene;
+  private readonly colliders: Collider[];
   private readonly onBotDowned: (bot: Bot, killedByPlayer: boolean) => void;
   private readonly bots: Bot[] = [];
   private readonly raycastTargets: THREE.Object3D[] = [];
@@ -275,6 +279,7 @@ export class BotManager {
   constructor(options: BotManagerOptions) {
     this.assets = createSoldierAssets();
     this.scene = options.scene;
+    this.colliders = options.colliders ?? [];
     this.onBotDowned = options.onBotDowned;
   }
 
@@ -389,8 +394,14 @@ export class BotManager {
       }
       if (!bot.group.visible) continue;
 
+      const previousX = bot.group.position.x;
+      const previousZ = bot.group.position.z;
       bot.updateMovement(dt);
       this.avoidPlayer(bot, world.playerPosition);
+      if (isBlockedAt(this.colliders, bot.group.position.x, bot.group.position.z, 1.0, 0.4)) {
+        bot.group.position.x = previousX;
+        bot.group.position.z = previousZ;
+      }
       bot.retargetTimer -= dt;
       if (bot.retargetTimer <= 0 || !this.isTargetValid(bot)) {
         bot.target = this.chooseTarget(bot, world);
@@ -480,22 +491,29 @@ export class BotManager {
     const origin = bot.group.position.clone();
     origin.y += 1.2;
     let targetPoint = origin.clone().add(new THREE.Vector3(0, 0, -24));
+    let targetBot: Bot | null = null;
 
     if (bot.target.kind === 'player') {
       targetPoint = world.playerPosition.clone();
       targetPoint.y += 1.4;
+    } else if (bot.target.botId) {
+      targetBot = this.bots.find((candidate) => candidate.id === bot.target?.botId) ?? null;
+      if (targetBot) {
+        targetPoint = targetBot.group.position.clone();
+        targetPoint.y += 1.2;
+      }
+    }
+
+    if (!world.hasLineOfSight(origin, targetPoint)) {
+      return;
+    }
+
+    if (bot.target.kind === 'player') {
       if (hit && world.playerAlive) {
         world.damagePlayer(SHOT_DAMAGE);
       }
-    } else if (bot.target.botId) {
-      const target = this.bots.find((candidate) => candidate.id === bot.target?.botId);
-      if (target) {
-        targetPoint = target.group.position.clone();
-        targetPoint.y += 1.2;
-        if (target.alive && hit) {
-          this.hitBot(target.id, SHOT_DAMAGE, 'bot');
-        }
-      }
+    } else if (targetBot && targetBot.alive && hit) {
+      this.hitBot(targetBot.id, SHOT_DAMAGE, 'bot');
     }
 
     world.spawnTracer(origin, targetPoint);
@@ -542,18 +560,34 @@ export class BotManager {
   }
 
   private makeSpawnPosition(faction: Faction): THREE.Vector3 {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const candidate = this.randomSpawnPosition(faction);
+      const clear =
+        !isBlockedAt(this.colliders, candidate.x, candidate.z, 1.0, 0.4) &&
+        this.bots.every(
+          (bot) =>
+            !bot.alive ||
+            !bot.group.visible ||
+            bot.group.position.distanceTo(candidate) > 2.2,
+        );
+      if (clear) return candidate;
+    }
+    return this.randomSpawnPosition(faction);
+  }
+
+  private randomSpawnPosition(faction: Faction): THREE.Vector3 {
     if (this.zone === 'jungle') {
       if (faction === 'red') {
-        return new THREE.Vector3((Math.random() - 0.5) * 12, 8, 66 + Math.random() * 8);
+        return new THREE.Vector3((Math.random() - 0.5) * 22, 8, 62 + Math.random() * 16);
       }
-      return new THREE.Vector3((Math.random() - 0.5) * 10, 8, 44 + Math.random() * 14);
+      return new THREE.Vector3((Math.random() - 0.5) * 24, 8, 40 + Math.random() * 22);
     }
 
     if (this.zone === 'street') {
       if (faction === 'red') {
-        return new THREE.Vector3((Math.random() - 0.5) * 11, 8, -38 - Math.random() * 12);
+        return new THREE.Vector3((Math.random() - 0.5) * 18, 8, -38 - Math.random() * 16);
       }
-      return new THREE.Vector3((Math.random() - 0.5) * 12, 8, -56 - Math.random() * 14);
+      return new THREE.Vector3((Math.random() - 0.5) * 22, 8, -56 - Math.random() * 24);
     }
 
     if (faction === 'red') {
