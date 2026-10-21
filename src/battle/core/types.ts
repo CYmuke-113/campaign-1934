@@ -4,9 +4,12 @@ export type BattleResult = 'red_victory';
 
 export type PhaseId = 'phase_1' | 'phase_2' | 'phase_3' | 'phase_4';
 
+export type BattleZone = 'jungle' | 'bridge' | 'street';
+
 export interface PhaseConfig {
   id: PhaseId;
   name: string;
+  zone: BattleZone;
   durationSec: number;
   narrationId: string;
   red: {

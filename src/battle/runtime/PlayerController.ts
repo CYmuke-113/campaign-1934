@@ -188,6 +188,15 @@ export class PlayerController {
     this.applyRotation();
   }
 
+  teleportTo(x: number, z: number): void {
+    this.falling = false;
+    this.fallVelocity = 0;
+    this.yaw = 0;
+    this.pitch = -0.1;
+    this.camera.position.set(x, this.bounds.deckY + this.eyeHeight, z);
+    this.applyRotation();
+  }
+
   takeDamage(amount: number): void {
     if (this.downed || this.paused || !this.enabled || amount <= 0) return;
     this.hp = Math.max(0, this.hp - amount);
@@ -243,7 +252,11 @@ export class PlayerController {
 
   private clampToBattlefield(): void {
     const z = this.camera.position.z;
-    this.camera.position.z = THREE.MathUtils.clamp(z, this.bounds.minZ, 48);
+    this.camera.position.z = THREE.MathUtils.clamp(
+      z,
+      this.bounds.worldMinZ,
+      this.bounds.worldMaxZ,
+    );
 
     if (this.camera.position.z > this.bounds.minZ && this.camera.position.z < this.bounds.maxZ) {
       if (Math.abs(this.camera.position.x) > this.bounds.maxX) {
@@ -253,11 +266,7 @@ export class PlayerController {
       return;
     }
 
-    if (this.camera.position.z <= this.bounds.minZ) {
-      this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -6, 6);
-    } else {
-      this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -4, 4);
-    }
+    this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -9, 9);
   }
 
   private applyRotation(): void {

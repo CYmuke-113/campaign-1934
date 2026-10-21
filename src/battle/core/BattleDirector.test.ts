@@ -21,6 +21,7 @@ function makePhases(durationSec = 1): PhaseConfig[] {
     {
       id: 'phase_1',
       name: 'P1',
+      zone: 'bridge',
       durationSec,
       narrationId: 'n1',
       red: { initial: 20, reinforcements: 0, reinforcementIntervalSec: 0, maxAlive: 22 },
@@ -31,6 +32,7 @@ function makePhases(durationSec = 1): PhaseConfig[] {
     {
       id: 'phase_2',
       name: 'P2',
+      zone: 'bridge',
       durationSec,
       narrationId: 'n2',
       red: { initial: 22, reinforcements: 2, reinforcementIntervalSec: 30, maxAlive: 26 },
@@ -41,6 +43,7 @@ function makePhases(durationSec = 1): PhaseConfig[] {
     {
       id: 'phase_3',
       name: 'P3',
+      zone: 'bridge',
       durationSec,
       narrationId: 'n3',
       red: { initial: 24, reinforcements: 4, reinforcementIntervalSec: 20, maxAlive: 26 },
@@ -51,6 +54,7 @@ function makePhases(durationSec = 1): PhaseConfig[] {
     {
       id: 'phase_4',
       name: 'P4',
+      zone: 'bridge',
       durationSec,
       narrationId: 'n4',
       red: { initial: 26, reinforcements: 2, reinforcementIntervalSec: 15, maxAlive: 26 },

@@ -6,6 +6,8 @@ export interface BridgeBounds {
   minZ: number;
   maxZ: number;
   deckY: number;
+  worldMinZ: number;
+  worldMaxZ: number;
 }
 
 export interface BattleScene {
@@ -40,7 +42,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
 
   const camera = new THREE.PerspectiveCamera(72, width / height, 0.1, 520);
   camera.rotation.order = 'YXZ';
-  camera.position.set(0, DECK_Y + 1.65, 26);
+  camera.position.set(0, DECK_Y + 1.65, 68);
   scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer({
@@ -623,6 +625,130 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     scene.add(mesh);
   });
 
+  // Jungle approach before the bridge.
+  const jungleGround = new THREE.Mesh(
+    track(new THREE.PlaneGeometry(44, 54)),
+    track(new THREE.MeshStandardMaterial({ color: 0x26362b, roughness: 1 })),
+  );
+  jungleGround.rotation.x = -Math.PI / 2;
+  jungleGround.position.set(0, 7.85, 54);
+  scene.add(jungleGround);
+
+  const junglePath = new THREE.Mesh(
+    track(new THREE.PlaneGeometry(6, 50)),
+    track(new THREE.MeshStandardMaterial({ color: 0x4a4336, roughness: 1 })),
+  );
+  junglePath.rotation.x = -Math.PI / 2;
+  junglePath.position.set(0, 7.9, 53);
+  scene.add(junglePath);
+
+  const trunkGeometry = track(new THREE.CylinderGeometry(0.22, 0.35, 4, 5));
+  const trunkMaterial = track(
+    new THREE.MeshStandardMaterial({ color: 0x3f3328, roughness: 1 }),
+  );
+  const canopyGeometry = track(new THREE.IcosahedronGeometry(1, 0));
+  const canopyMaterial = track(
+    new THREE.MeshStandardMaterial({ color: 0x2f4a38, roughness: 1 }),
+  );
+  const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, 28);
+  const canopies = new THREE.InstancedMesh(canopyGeometry, canopyMaterial, 28);
+  for (let i = 0; i < 28; i += 1) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const x = side * (5 + Math.random() * 13);
+    const z = 34 + Math.random() * 42;
+    const height = 3 + Math.random() * 3;
+    instanceDummy.position.set(x, 8 + height / 2, z);
+    instanceDummy.rotation.set(0, Math.random() * Math.PI, 0);
+    instanceDummy.scale.set(1, height / 4, 1);
+    instanceDummy.updateMatrix();
+    trunks.setMatrixAt(i, instanceDummy.matrix);
+
+    const canopyScale = 1.4 + Math.random() * 1.7;
+    instanceDummy.position.set(x, 8 + height + 0.6, z);
+    instanceDummy.rotation.set(
+      Math.random() * 0.3,
+      Math.random() * Math.PI,
+      Math.random() * 0.3,
+    );
+    instanceDummy.scale.setScalar(canopyScale);
+    instanceDummy.updateMatrix();
+    canopies.setMatrixAt(i, instanceDummy.matrix);
+  }
+  trunks.instanceMatrix.needsUpdate = true;
+  canopies.instanceMatrix.needsUpdate = true;
+  scene.add(trunks, canopies);
+
+  const bushGeometry = track(new THREE.IcosahedronGeometry(0.8, 0));
+  const bushMaterial = track(
+    new THREE.MeshStandardMaterial({ color: 0x3a5741, roughness: 1 }),
+  );
+  const bushes = new THREE.InstancedMesh(bushGeometry, bushMaterial, 22);
+  for (let i = 0; i < 22; i += 1) {
+    const side = i % 2 === 0 ? -1 : 1;
+    instanceDummy.position.set(side * (3.5 + Math.random() * 10), 8.4, 34 + Math.random() * 42);
+    instanceDummy.rotation.set(0, Math.random() * Math.PI, 0);
+    instanceDummy.scale.setScalar(0.6 + Math.random() * 0.9);
+    instanceDummy.updateMatrix();
+    bushes.setMatrixAt(i, instanceDummy.matrix);
+  }
+  bushes.instanceMatrix.needsUpdate = true;
+  scene.add(bushes);
+
+  // Street and ruined houses after the bridgehead.
+  const streetGround = new THREE.Mesh(
+    track(new THREE.PlaneGeometry(28, 52)),
+    track(new THREE.MeshStandardMaterial({ color: 0x3c3a35, roughness: 1 })),
+  );
+  streetGround.rotation.x = -Math.PI / 2;
+  streetGround.position.set(0, 7.85, -58);
+  scene.add(streetGround);
+
+  const streetPath = new THREE.Mesh(
+    track(new THREE.PlaneGeometry(7, 50)),
+    track(new THREE.MeshStandardMaterial({ color: 0x555149, roughness: 1 })),
+  );
+  streetPath.rotation.x = -Math.PI / 2;
+  streetPath.position.set(0, 7.9, -58);
+  scene.add(streetPath);
+
+  for (const side of [-1, 1]) {
+    for (const z of [-42, -50, -58, -66, -74]) {
+      const x = side * (8 + Math.random() * 2.5);
+      const height = 3.5 + Math.random() * 2.5;
+      const wall = new THREE.Mesh(
+        track(new THREE.BoxGeometry(5, height, 6)),
+        bunkerMaterial,
+      );
+      wall.position.set(x, 8 + height / 2, z);
+      scene.add(wall);
+
+      const roof = new THREE.Mesh(
+        track(new THREE.BoxGeometry(5.6, 0.4, 6.6)),
+        bunkerDarkMaterial,
+      );
+      roof.position.set(x, 8 + height + 0.2, z);
+      scene.add(roof);
+
+      const windowMesh = new THREE.Mesh(
+        track(new THREE.BoxGeometry(0.12, 1.2, 1.2)),
+        bunkerDarkMaterial,
+      );
+      windowMesh.position.set(x - side * 2.56, 9.6, z);
+      scene.add(windowMesh);
+    }
+  }
+
+  for (let i = 0; i < 14; i += 1) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const rubble = new THREE.Mesh(
+      track(new THREE.BoxGeometry(0.6 + Math.random(), 0.3, 0.7 + Math.random())),
+      bunkerDarkMaterial,
+    );
+    rubble.position.set(side * (2.5 + Math.random() * 7), 8.15, -40 - Math.random() * 32);
+    rubble.rotation.y = Math.random() * Math.PI;
+    scene.add(rubble);
+  }
+
   // Rain
   const rainCount = 760;
   const rainPositions = new Float32Array(rainCount * 3);
@@ -788,8 +914,10 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       minZ: -BRIDGE_HALF_LENGTH,
       maxZ: BRIDGE_HALF_LENGTH,
       deckY: DECK_Y,
+      worldMinZ: -78,
+      worldMaxZ: 76,
     },
-    redSpawn: new THREE.Vector3(0, DECK_Y, 26),
+    redSpawn: new THREE.Vector3(0, DECK_Y, 68),
     kmtSpawn: new THREE.Vector3(0, DECK_Y, BUNKER_CENTER_Z),
     machineGun: machineGunGroup,
     update,

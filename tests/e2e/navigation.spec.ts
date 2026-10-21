@@ -40,7 +40,7 @@ test('battle deploys bots without showing faction counts', async ({ page }) => {
 
   await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('canvas')).toBeVisible();
-  await expect(page.locator('[data-hud="phase"]')).toContainText('奔袭桥头');
+  await expect(page.locator('[data-hud="phase"]')).toContainText('丛林接敌');
 
   const counts = await page.evaluate(() => {
     const snapshot = (window as unknown as { __battleDebug: any }).__battleDebug.director.snapshot;
@@ -150,6 +150,29 @@ test('damage flashes the edge and low health keeps it red', async ({ page }) => 
     (window as unknown as { __battleDebug: any }).__battleDebug.player.takeDamage(25);
   });
   await expect(page.locator('[data-hud="down"]')).toHaveClass(/is-visible/);
+});
+
+test('the campaign moves from jungle to bridge to street', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  const phase = page.locator('[data-hud="phase"]');
+  await expect(phase).toContainText('丛林接敌');
+  const skip = page.getByTestId('debug-panel').locator('[data-debug-action="skip"]');
+
+  await skip.click();
+  await expect(phase).toContainText('第一波突击受挫');
+  await skip.click();
+  await expect(phase).toContainText('第二波突击');
+  await skip.click();
+  await expect(phase).toContainText('街巷肃清');
+
+  const z = await page.evaluate(
+    () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.z,
+  );
+  expect(z).toBeLessThan(-30);
 });
 
 test('phase progression through the director reaches the result screen', async ({ page }) => {

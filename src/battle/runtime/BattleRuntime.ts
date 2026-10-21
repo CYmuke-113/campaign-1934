@@ -6,7 +6,7 @@ import { PHASES } from '../../content/phases';
 import { BattleDirector } from '../core/BattleDirector';
 import { BattleStats } from '../core/BattleStats';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
-import type { BattleSnapshot, Faction } from '../core/types';
+import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
 import { AudioManager } from './AudioManager';
 import { BotManager, type Bot, type BotWorld } from './BotManager';
@@ -49,6 +49,7 @@ export class BattleRuntime {
   private fpsAccumulator = 0;
   private fpsFrames = 0;
   private machineGunTimer: number | null = null;
+  private currentZone: BattleZone | null = null;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
   private lowFpsWindows = 0;
@@ -241,6 +242,14 @@ export class BattleRuntime {
   }
 
   private handlePhase(phaseName: string, narrationId: string, index: number): void {
+    const phaseConfig = PHASES[index];
+    if (phaseConfig && this.currentZone !== phaseConfig.zone) {
+      this.currentZone = phaseConfig.zone;
+      this.bots.setBattleZone(phaseConfig.zone);
+      const spawnZ =
+        phaseConfig.zone === 'jungle' ? 68 : phaseConfig.zone === 'bridge' ? 26 : -38;
+      this.player.teleportTo(0, spawnZ);
+    }
     this.bots.setPhase(index);
     const text = NARRATION[narrationId];
     if (text) {

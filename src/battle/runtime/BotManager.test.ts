@@ -17,6 +17,7 @@ describe('Bot falling', () => {
   it('drops a bot off the bridge when it is downed on the deck', () => {
     const assets = createSoldierAssets();
     const bot = new Bot('bot_test', assets, 'red', false, new THREE.Vector3(0, 8, 0));
+    bot.zone = 'bridge';
 
     expect(bot.takeDamage(100)).toBe(true);
     expect(bot.alive).toBe(false);
@@ -37,6 +38,7 @@ describe('Bot falling', () => {
     const scene = new THREE.Scene();
     const manager = new BotManager({ scene, onBotDowned: vi.fn() });
     manager.spawn('kmt', 4, false);
+    manager.setBattleZone('bridge');
     manager.setPhase(1);
 
     const world = createWorld();
@@ -58,6 +60,7 @@ describe('Bot falling', () => {
     const onBotDowned = vi.fn();
     const manager = new BotManager({ scene, onBotDowned });
     manager.spawn('red', 1, false);
+    manager.setBattleZone('bridge');
     manager.setPhase(1);
     manager.getBots()[0].group.position.set(0, 8, 20);
 
@@ -72,5 +75,34 @@ describe('Bot falling', () => {
     expect(falling!.group.position.y).toBeLessThan(startY);
 
     manager.dispose();
+  });
+
+  it('repositions living bots when the battle zone changes', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.spawn('red', 1, false);
+    manager.spawn('kmt', 1, false);
+    manager.setPhase(2);
+    manager.setBattleZone('street');
+
+    const red = manager.getBots().find((bot) => bot.faction === 'red');
+    const kmt = manager.getBots().find((bot) => bot.faction === 'kmt');
+    expect(red?.group.position.z).toBeLessThan(-30);
+    expect(kmt?.group.position.z).toBeLessThan(-40);
+
+    manager.dispose();
+  });
+
+  it('makes a bot dodge sideways after taking non-lethal damage', () => {
+    const assets = createSoldierAssets();
+    const bot = new Bot('bot_dodge', assets, 'red', false, new THREE.Vector3(0, 8, 0));
+    bot.zone = 'bridge';
+
+    expect(bot.takeDamage(25)).toBe(false);
+    expect(bot.dodgeTimer).toBeGreaterThan(0);
+    expect(Math.abs(bot.dodgeDir)).toBe(1);
+
+    bot.dispose();
+    assets.dispose();
   });
 });

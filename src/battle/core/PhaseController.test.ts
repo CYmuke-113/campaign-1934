@@ -7,6 +7,7 @@ function makePhases(): PhaseConfig[] {
     {
       id: 'phase_1',
       name: 'P1',
+      zone: 'bridge',
       durationSec: 1,
       narrationId: 'n1',
       red: { initial: 20, reinforcements: 0, reinforcementIntervalSec: 0, maxAlive: 22 },
@@ -17,6 +18,7 @@ function makePhases(): PhaseConfig[] {
     {
       id: 'phase_2',
       name: 'P2',
+      zone: 'bridge',
       durationSec: 2,
       narrationId: 'n2',
       red: { initial: 22, reinforcements: 0, reinforcementIntervalSec: 0, maxAlive: 26 },

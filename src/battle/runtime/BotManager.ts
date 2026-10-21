@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SHOT_DAMAGE } from '../core/constants';
-import type { Faction } from '../core/types';
+import type { BattleZone, Faction } from '../core/types';
 import {
   createSoldier,
   createSoldierAssets,
@@ -34,12 +34,18 @@ export class Bot {
   isKey: boolean;
   alive = true;
   hp = 100;
+  zone: BattleZone = 'jungle';
   state: BotState = 'advance';
   targetZ = 40;
   laneX = 0;
   speed = 1.4;
   fireTimer = 0;
   retargetTimer = 0;
+  dodgeTimer = 0;
+  dodgeDir = 1;
+  strafeTime = Math.random() * 10;
+  burstRemaining = 0;
+  burstTimer = 0;
   target: BotTarget | null = null;
   deathTimer = 0;
   inactive = false;
@@ -80,6 +86,11 @@ export class Bot {
     this.fallSide = 1;
     this.fireTimer = 0.8 + Math.random() * 1.4;
     this.retargetTimer = Math.random() * 0.8;
+    this.dodgeTimer = 0;
+    this.dodgeDir = 1;
+    this.burstRemaining = 0;
+    this.burstTimer = 0;
+    this.strafeTime = Math.random() * 10;
     this.target = null;
     this.speed = faction === 'red' ? 1.25 + Math.random() * 0.55 : 0.7 + Math.random() * 0.35;
     this.laneX = (Math.random() - 0.5) * 1.9;
@@ -92,27 +103,47 @@ export class Bot {
     this.setPhase(0);
   }
 
+  resetView(): void {
+    this.view.reset();
+  }
+
   setPhase(phaseIndex: number): void {
-    if (this.faction === 'red') {
+    if (this.zone === 'jungle') {
+      this.targetZ =
+        this.faction === 'red'
+          ? 38 + Math.random() * 12 - (this.isKey ? 1.5 : 0)
+          : 44 + Math.random() * 12;
+    } else if (this.zone === 'street') {
+      this.targetZ =
+        this.faction === 'red'
+          ? -46 - Math.random() * 10 - (this.isKey ? 1.5 : 0)
+          : -58 - Math.random() * 14;
+    } else if (this.faction === 'red') {
       const targets = [27, 10, -8, -24];
       const spread = [2, 8, 8, 2];
       const base = targets[Math.min(phaseIndex, targets.length - 1)];
       const range = spread[Math.min(phaseIndex, spread.length - 1)];
       this.targetZ = base + Math.random() * range - (this.isKey ? 1.5 : 0);
-      this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
     } else {
       // Nationalist troops hold inside the far-bank bunker, never on the bridge.
       this.targetZ = -34.5 - Math.random() * 2.5;
-      this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
     }
+
+    this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
   }
 
   takeDamage(amount: number): boolean {
     if (!this.alive) return false;
     this.hp = Math.max(0, this.hp - amount);
-    if (this.hp > 0) return false;
+    if (this.hp > 0) {
+      this.dodgeTimer = 0.35;
+      this.dodgeDir = Math.random() > 0.5 ? 1 : -1;
+      this.strafeTime += 0.7;
+      return false;
+    }
 
     const onBridge =
+      this.zone === 'bridge' &&
       this.group.position.z > -30 &&
       this.group.position.z < 30 &&
       Math.abs(this.group.position.x) < 1.5;
@@ -195,6 +226,23 @@ export class Bot {
       this.group.position.x += Math.sign(dx) * Math.min(Math.abs(dx), this.speed * 0.5 * dt);
     }
 
+    this.strafeTime += dt;
+    const maxX = this.zone === 'bridge' ? 1.35 : 6.5;
+    if (this.dodgeTimer > 0) {
+      this.dodgeTimer -= dt;
+      this.group.position.x = THREE.MathUtils.clamp(
+        this.group.position.x + this.dodgeDir * 3.2 * dt,
+        -maxX,
+        maxX,
+      );
+    } else if (this.state === 'hold') {
+      this.group.position.x = THREE.MathUtils.clamp(
+        this.group.position.x + Math.sin(this.strafeTime * 1.6) * 0.55 * dt,
+        -maxX,
+        maxX,
+      );
+    }
+
     const moving = distance > 0.4 && this.state === 'advance';
     this.view.setMoving(moving);
     this.view.update(dt);
@@ -217,6 +265,7 @@ export class BotManager {
   private readonly raycastTargets: THREE.Object3D[] = [];
   private nextId = 1;
   private phaseIndex = 0;
+  private zone: BattleZone = 'jungle';
   private kmtAccuracy = 0.2;
   private selfFallTimer = 8 + Math.random() * 8;
   private kmtFireRate = 1;
@@ -256,6 +305,7 @@ export class BotManager {
       }
       if (!bot) break;
       const position = this.makeSpawnPosition(faction);
+      bot.zone = this.zone;
       bot.reset(faction, isKey, position);
       bot.setPhase(this.phaseIndex);
       spawned += 1;
@@ -269,6 +319,25 @@ export class BotManager {
     this.bots.forEach((bot) => {
       if (bot.alive) bot.setPhase(phaseIndex);
     });
+  }
+
+  setBattleZone(zone: BattleZone): void {
+    if (this.zone === zone) return;
+    this.zone = zone;
+
+    for (const bot of this.bots) {
+      if (!bot.alive) continue;
+      bot.zone = zone;
+      bot.group.position.copy(this.makeSpawnPosition(bot.faction));
+      bot.group.rotation.set(0, bot.faction === 'red' ? Math.PI : 0, 0);
+      bot.fireTimer = 0.8 + Math.random() * 1.4;
+      bot.burstRemaining = 0;
+      bot.burstTimer = 0;
+      bot.dodgeTimer = 0;
+      bot.resetView();
+      bot.setPhase(this.phaseIndex);
+    }
+    this.refreshRaycastTargets();
   }
 
   setKmtModifiers(accuracy: number, fireRate: number): void {
@@ -326,11 +395,26 @@ export class BotManager {
         bot.retargetTimer = 0.8 + Math.random() * 1.2;
       }
 
-      bot.fireTimer -= dt;
-      if (bot.fireTimer <= 0 && bot.target) {
-        this.fireAtTarget(bot, world);
-        const base = bot.faction === 'kmt' ? 1.6 / Math.max(0.3, this.kmtFireRate) : 1.7;
-        bot.fireTimer = base * (0.75 + Math.random() * 0.5);
+      if (bot.target) {
+        if (bot.burstRemaining > 0) {
+          bot.burstTimer -= dt;
+          if (bot.burstTimer <= 0) {
+            this.fireAtTarget(bot, world);
+            bot.burstRemaining -= 1;
+            bot.burstTimer = 0.12 + Math.random() * 0.06;
+            if (bot.burstRemaining <= 0) {
+              const base =
+                bot.faction === 'kmt' ? 1.6 / Math.max(0.3, this.kmtFireRate) : 1.7;
+              bot.fireTimer = base * (0.75 + Math.random() * 0.5);
+            }
+          }
+        } else {
+          bot.fireTimer -= dt;
+          if (bot.fireTimer <= 0) {
+            bot.burstRemaining = 2 + Math.floor(Math.random() * 2);
+            bot.burstTimer = 0;
+          }
+        }
       }
     }
 
@@ -341,7 +425,7 @@ export class BotManager {
     this.selfFallTimer -= dt;
     if (this.selfFallTimer > 0) return null;
     this.selfFallTimer = 9 + Math.random() * 10;
-    if (this.phaseIndex < 1) return null;
+    if (this.phaseIndex < 1 || this.zone !== 'bridge') return null;
 
     const candidates = this.bots.filter(
       (bot) =>
@@ -379,10 +463,11 @@ export class BotManager {
 
     const parity = Number(bot.id.split('_')[1] ?? 1) % 2 === 0 ? 1 : -1;
     const side = Math.abs(dx) > 0.08 ? Math.sign(dx) : parity;
+    const maxX = this.zone === 'bridge' ? 1.95 : 6.8;
     bot.group.position.x = THREE.MathUtils.clamp(
       playerPosition.x + side * 1.7,
-      -1.95,
-      1.95,
+      -maxX,
+      maxX,
     );
   }
 
@@ -444,6 +529,20 @@ export class BotManager {
   }
 
   private makeSpawnPosition(faction: Faction): THREE.Vector3 {
+    if (this.zone === 'jungle') {
+      if (faction === 'red') {
+        return new THREE.Vector3((Math.random() - 0.5) * 12, 8, 66 + Math.random() * 8);
+      }
+      return new THREE.Vector3((Math.random() - 0.5) * 10, 8, 44 + Math.random() * 14);
+    }
+
+    if (this.zone === 'street') {
+      if (faction === 'red') {
+        return new THREE.Vector3((Math.random() - 0.5) * 11, 8, -38 - Math.random() * 12);
+      }
+      return new THREE.Vector3((Math.random() - 0.5) * 12, 8, -56 - Math.random() * 14);
+    }
+
     if (faction === 'red') {
       const lane = (Math.random() - 0.5) * 1.7;
       return new THREE.Vector3(lane, 8, 27.5 + Math.random() * 2.0);
