@@ -1,10 +1,11 @@
 export const PLAYER_MAX_HP = 100;
 export const BOT_MAX_HP = 100;
-export const SHOT_DAMAGE = 10;
+export const SHOT_DAMAGE = 25;
+export const CRITICAL_HP = 25;
 export const MAG_SIZE = 10;
 export const RESERVE_AMMO = 120;
 export const RELOAD_SECONDS = 1.8;
-export const FIRE_COOLDOWN_SECONDS = 0.18;
+export const FIRE_COOLDOWN_SECONDS = 0.1;
 export const FRIENDLY_FIRE_ENABLED = false;
 
 export const MAX_TOTAL_BOTS = 40;

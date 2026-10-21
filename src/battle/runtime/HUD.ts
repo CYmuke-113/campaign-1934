@@ -1,3 +1,4 @@
+import { CRITICAL_HP } from '../core/constants';
 import type { BattleSnapshot } from '../core/types';
 import type { Settings } from '../../utils/storage';
 
@@ -36,6 +37,7 @@ export class HUD {
   private damageTimer: number | null = null;
   private hitTimer: number | null = null;
   private paused = false;
+  private critical = false;
   private debugEnabled = false;
 
   constructor(container: HTMLElement, options: HUDOptions) {
@@ -169,6 +171,13 @@ export class HUD {
     const healthPercent = Math.max(0, Math.min(100, (snapshot.playerHp / snapshot.playerMaxHp) * 100));
     this.healthFill.style.width = `${healthPercent}%`;
     this.healthValue.textContent = String(Math.ceil(snapshot.playerHp));
+
+    this.critical = snapshot.playerHp > 0 && snapshot.playerHp <= CRITICAL_HP;
+    this.damageVignette.classList.toggle('is-critical', this.critical);
+    if (this.damageVignette.style.opacity !== '1') {
+      this.damageVignette.style.opacity = this.critical ? '0.42' : '0';
+    }
+
     this.ammoMag.textContent = String(snapshot.ammoMag);
     this.ammoReserve.textContent = `/ ${snapshot.ammoReserve}`;
     this.reloadHint.textContent = snapshot.reloading
@@ -227,7 +236,7 @@ export class HUD {
     this.damageVignette.style.opacity = '1';
     if (this.damageTimer !== null) window.clearTimeout(this.damageTimer);
     this.damageTimer = window.setTimeout(() => {
-      this.damageVignette.style.opacity = '0';
+      this.damageVignette.style.opacity = this.critical ? '0.42' : '0';
       this.damageTimer = null;
     }, 180);
   }

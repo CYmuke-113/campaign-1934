@@ -1,4 +1,4 @@
-import { SHOT_DAMAGE } from './constants';
+import { CRITICAL_HP, SHOT_DAMAGE } from './constants';
 import type { Faction } from './types';
 
 export function damageForHit(): number {
@@ -11,6 +11,10 @@ export function applyDamage(currentHp: number, damage: number = SHOT_DAMAGE): nu
 
 export function isDown(hp: number): boolean {
   return hp <= 0;
+}
+
+export function isCritical(hp: number): boolean {
+  return hp > 0 && hp <= CRITICAL_HP;
 }
 
 export function canDamage(attacker: Faction, target: Faction): boolean {

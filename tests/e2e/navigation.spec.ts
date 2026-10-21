@@ -81,6 +81,53 @@ test('player can lock the pointer, move, and fire', async ({ page }) => {
   expect(ammoAfter).toBeLessThan(ammoBefore);
 });
 
+test('rifle uses automatic fire and reloads automatically when empty', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  const result = await page.evaluate(() => {
+    const weapon = (window as unknown as { __battleDebug: any }).__battleDebug.weapon;
+    weapon.setTrigger(true);
+    for (let i = 0; i < 10; i += 1) {
+      weapon.update(0.1);
+    }
+    const afterBurst = { ...weapon.state };
+    weapon.setTrigger(false);
+    weapon.update(0.1);
+    const duringReload = { ...weapon.state };
+    weapon.update(1.9);
+    const afterReload = { ...weapon.state };
+    return { afterBurst, duringReload, afterReload };
+  });
+
+  expect(result.afterBurst.mag).toBe(0);
+  expect(result.duringReload.reloading).toBe(true);
+  expect(result.afterReload.mag).toBe(10);
+  expect(result.afterReload.reserve).toBe(110);
+});
+
+test('damage flashes the edge and low health keeps it red', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await page.evaluate(() => {
+    const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
+    debug.bots.setKmtModifiers(0, 0.1);
+    debug.player.takeDamage(75);
+  });
+
+  await expect(page.locator('[data-hud="damage"]')).toHaveClass(/is-critical/);
+  await expect(page.locator('[data-hud="health-value"]')).toHaveText('25');
+
+  await page.evaluate(() => {
+    (window as unknown as { __battleDebug: any }).__battleDebug.player.takeDamage(25);
+  });
+  await expect(page.locator('[data-hud="down"]')).toHaveClass(/is-visible/);
+});
+
 test('phase progression through the director reaches the result screen', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();

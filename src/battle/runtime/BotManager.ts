@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SHOT_DAMAGE } from '../core/constants';
 import type { Faction } from '../core/types';
 import {
   createSoldier,
@@ -314,12 +315,12 @@ export class BotManager {
 
     if (bot.target.kind === 'player') {
       if (hit && world.playerAlive) {
-        world.damagePlayer(10);
+        world.damagePlayer(SHOT_DAMAGE);
       }
     } else if (bot.target.botId) {
       const target = this.bots.find((candidate) => candidate.id === bot.target?.botId);
       if (target && target.alive && hit) {
-        this.hitBot(target.id, 10, 'bot');
+        this.hitBot(target.id, SHOT_DAMAGE, 'bot');
       }
     }
 

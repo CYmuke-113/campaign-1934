@@ -6,7 +6,8 @@ import {
 import type { BridgeBounds } from '../three/SceneFactory';
 
 export interface PlayerCallbacks {
-  onShoot(): void;
+  onTriggerDown(): void;
+  onTriggerUp(): void;
   onReload(): void;
   onDamage(amount: number): void;
   onDown(): void;
@@ -66,6 +67,7 @@ export class PlayerController {
     window.addEventListener('keyup', this.handleKeyUp);
     window.addEventListener('mousemove', this.handleMouseMove);
     window.addEventListener('mousedown', this.handleMouseDown);
+    window.addEventListener('mouseup', this.handleMouseUp);
     document.addEventListener('pointerlockchange', this.handlePointerLockChange);
     this.domElement.addEventListener('click', this.handleCanvasClick);
     this.domElement.addEventListener('contextmenu', this.handleContextMenu);
@@ -101,6 +103,7 @@ export class PlayerController {
     this.paused = paused;
     if (paused) {
       this.keys.clear();
+      this.callbacks.onTriggerUp();
     }
   }
 
@@ -108,6 +111,7 @@ export class PlayerController {
     this.enabled = enabled;
     if (!enabled) {
       this.keys.clear();
+      this.callbacks.onTriggerUp();
     }
   }
 
@@ -201,6 +205,7 @@ export class PlayerController {
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('mousemove', this.handleMouseMove);
     window.removeEventListener('mousedown', this.handleMouseDown);
+    window.removeEventListener('mouseup', this.handleMouseUp);
     document.removeEventListener('pointerlockchange', this.handlePointerLockChange);
     this.domElement.removeEventListener('click', this.handleCanvasClick);
     this.domElement.removeEventListener('contextmenu', this.handleContextMenu);
@@ -214,6 +219,7 @@ export class PlayerController {
     this.downed = true;
     this.downEndsAt = performance.now() + PLAYER_DOWN_RESPAWN_SECONDS * 1000;
     this.keys.clear();
+    this.callbacks.onTriggerUp();
     this.callbacks.onDown();
   }
 
@@ -278,7 +284,13 @@ export class PlayerController {
   private handleMouseDown = (event: MouseEvent): void => {
     if (!this.locked || this.paused || this.downed || !this.enabled) return;
     if (event.button === 0) {
-      this.callbacks.onShoot();
+      this.callbacks.onTriggerDown();
+    }
+  };
+
+  private handleMouseUp = (event: MouseEvent): void => {
+    if (event.button === 0) {
+      this.callbacks.onTriggerUp();
     }
   };
 
@@ -286,6 +298,9 @@ export class PlayerController {
     const locked = document.pointerLockElement === this.domElement;
     this.locked = locked;
     this.callbacks.onLockChange(locked);
+    if (!locked) {
+      this.callbacks.onTriggerUp();
+    }
 
     if (this.wasLocked && !locked && !this.paused && !this.downed && this.enabled) {
       this.callbacks.onPauseRequest();

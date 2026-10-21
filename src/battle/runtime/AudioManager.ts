@@ -77,6 +77,12 @@ export class AudioManager {
     this.thump(72, 26, 0.7, 0.3);
   }
 
+  playDamage(): void {
+    this.thump(96, 44, 0.3, 0.22);
+    this.noiseBurst(0.16, 360, 0.16, (Math.random() - 0.5) * 0.2, 'lowpass');
+    this.tone(170, 0.12, 0.035, 0.02);
+  }
+
   playFootstep(): void {
     this.noiseBurst(0.07, 620, 0.08, (Math.random() - 0.5) * 0.2, 'lowpass');
   }

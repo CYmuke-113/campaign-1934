@@ -28,6 +28,7 @@ export class WeaponSystem {
   private recoil = 0;
   private muzzleTimer = 0;
   private enabled = true;
+  private triggerHeld = false;
 
   private readonly raycaster = new THREE.Raycaster();
   private readonly viewmodel: THREE.Group;
@@ -52,11 +53,22 @@ export class WeaponSystem {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+    if (!enabled) {
+      this.triggerHeld = false;
+    }
+  }
+
+  setTrigger(held: boolean): void {
+    this.triggerHeld = held;
+    if (held && this.enabled && !this.reloading && this.cooldown <= 0) {
+      this.tryShoot();
+    }
   }
 
   tryShoot(): void {
     if (!this.enabled || this.reloading || this.cooldown > 0) return;
     if (this.mag <= 0) {
+      this.reload();
       return;
     }
 
@@ -111,11 +123,19 @@ export class WeaponSystem {
       }
     }
 
+    if (this.mag === 0 && this.reserve > 0 && !this.reloading) {
+      this.reload();
+    }
+
     if (this.mag === 0 && this.reserve === 0 && !this.reloading) {
       this.dryTimer -= dt;
       if (this.dryTimer <= 0) {
         this.refill();
       }
+    }
+
+    if (this.triggerHeld && this.enabled && !this.reloading && this.cooldown <= 0) {
+      this.tryShoot();
     }
 
     this.recoil = Math.max(0, this.recoil - dt * 5.5);

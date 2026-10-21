@@ -5,7 +5,7 @@ import { NARRATION } from '../../content/narration';
 import { PHASES } from '../../content/phases';
 import { BattleDirector } from '../core/BattleDirector';
 import { BattleStats } from '../core/BattleStats';
-import { PLAYER_MAX_HP } from '../core/constants';
+import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
 import { AudioManager } from './AudioManager';
@@ -91,9 +91,13 @@ export class BattleRuntime {
       this.battleScene.bounds,
       this.battleScene.redSpawn,
       {
-        onShoot: () => this.weapon.tryShoot(),
+        onTriggerDown: () => this.weapon.setTrigger(true),
+        onTriggerUp: () => this.weapon.setTrigger(false),
         onReload: () => this.weapon.reload(),
-        onDamage: () => this.hud.showDamage(),
+        onDamage: () => {
+          this.hud.showDamage();
+          this.audio.playDamage();
+        },
         onDown: () => this.handlePlayerDown(),
         onRespawn: () => this.handlePlayerRespawn(),
         onPauseRequest: () => this.pause(),
@@ -112,7 +116,7 @@ export class BattleRuntime {
         },
         onHit: (botId) => {
           this.stats.recordHit();
-          this.bots.hitBot(botId, 10, 'player');
+          this.bots.hitBot(botId, SHOT_DAMAGE, 'player');
           this.hud.showHitMarker();
           this.audio.playRicochet();
         },
@@ -152,6 +156,7 @@ export class BattleRuntime {
         camera: this.battleScene.camera,
         renderer: this.battleScene.renderer,
         player: this.player,
+        weapon: this.weapon,
         bots: this.bots,
         director: this.director,
       };
