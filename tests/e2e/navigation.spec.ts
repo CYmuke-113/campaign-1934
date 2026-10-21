@@ -1,4 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function completeQuiz(page: Page): Promise<void> {
+  await expect(page.getByTestId('quiz-screen')).toBeVisible();
+  for (let question = 0; question < 5; question += 1) {
+    await page.locator('[data-correct="true"]').click();
+    await page.getByTestId('quiz-next').click();
+  }
+  await expect(page.getByTestId('quiz-complete')).toBeVisible();
+  await expect(page.getByTestId('quiz-score')).toContainText('5');
+  await page.getByTestId('quiz-finish').click();
+}
 
 test('walks from the introduction to the battle shell and back', async ({ page }) => {
   await page.goto('/');
@@ -189,7 +200,9 @@ test('phase progression through the director reaches the result screen', async (
     await page.waitForTimeout(250);
   }
 
+  await completeQuiz(page);
   await expect(page.locator('.result-shell h1')).toHaveText('夺桥成功', { timeout: 8_000 });
+  await expect(page.getByTestId('result-quiz')).toContainText('5');
   await expect(page.getByTestId('result-back')).toBeVisible();
 });
 
@@ -295,6 +308,7 @@ test('debug victory reaches the result screen', async ({ page }) => {
 
   await page.getByTestId('debug-panel').locator('[data-debug-action="victory"]').click();
 
+  await completeQuiz(page);
   await expect(page.locator('.result-shell h1')).toHaveText('夺桥成功', { timeout: 8_000 });
   await expect(page.getByTestId('result-replay')).toBeVisible();
 

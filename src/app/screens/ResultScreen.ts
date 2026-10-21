@@ -1,9 +1,11 @@
 import type { Screen } from '../Screen';
 import type { BattleSummary } from '../AppState';
+import type { QuizResult } from '../../content/quiz';
 import { RESULT } from '../../content/result';
 
 interface ResultScreenOptions {
   summary: BattleSummary;
+  quiz?: QuizResult;
   onReplay: () => void;
   onBack: () => void;
 }
@@ -46,6 +48,11 @@ export class ResultScreen implements Screen {
               <span class="result-stat-label">参战时长</span>
             </div>
           </section>
+          ${
+            this.options.quiz
+              ? `<p class="result-quiz" data-testid="result-quiz">知识问答：答对 <strong>${this.options.quiz.correct}</strong> / ${this.options.quiz.total}</p>`
+              : ''
+          }
           <blockquote class="result-ending">${RESULT.ending}</blockquote>
           <div class="result-actions">
             <button type="button" class="btn btn-primary" data-testid="result-replay">再次体验</button>

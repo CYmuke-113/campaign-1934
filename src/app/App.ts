@@ -4,8 +4,10 @@ import { IntroScreen } from './screens/IntroScreen';
 import { OverviewScreen } from './screens/OverviewScreen';
 import { BattleLoadingScreen } from './screens/BattleLoadingScreen';
 import { BattleScreen } from './screens/BattleScreen';
+import { QuizScreen } from './screens/QuizScreen';
 import { ResultScreen } from './screens/ResultScreen';
 import { ErrorScreen } from './screens/ErrorScreen';
+import type { QuizResult } from '../content/quiz';
 import { loadSettings, saveSettings, type Settings } from '../utils/storage';
 
 export class App {
@@ -13,6 +15,7 @@ export class App {
 
   private currentScreen: Screen | null = null;
   private summary: BattleSummary | null = null;
+  private quizResult: QuizResult | null = null;
   private settings: Settings;
 
   constructor(private readonly root: HTMLElement) {
@@ -49,6 +52,8 @@ export class App {
   }
 
   startBattle(): void {
+    this.quizResult = null;
+    this.summary = null;
     this.setScreen(
       'battle-loading',
       new BattleLoadingScreen({
@@ -65,7 +70,8 @@ export class App {
         settings: this.settings,
         onVictory: (summary) => {
           this.summary = summary;
-          this.showResult();
+          this.quizResult = null;
+          this.showQuiz();
         },
         onExit: () => this.showOverview(),
         onRestart: () => this.startBattle(),
@@ -73,6 +79,18 @@ export class App {
         onSettingsChange: (settings) => {
           this.settings = settings;
           saveSettings(settings);
+        },
+      }),
+    );
+  }
+
+  showQuiz(): void {
+    this.setScreen(
+      'quiz',
+      new QuizScreen({
+        onComplete: (result) => {
+          this.quizResult = result;
+          this.showResult();
         },
       }),
     );
@@ -88,6 +106,7 @@ export class App {
       'result',
       new ResultScreen({
         summary,
+        quiz: this.quizResult ?? undefined,
         onReplay: () => this.startBattle(),
         onBack: () => this.showOverview(),
       }),

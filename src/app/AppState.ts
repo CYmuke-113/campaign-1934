@@ -4,6 +4,7 @@ export type AppState =
   | 'battle-loading'
   | 'battle'
   | 'pause'
+  | 'quiz'
   | 'result'
   | 'error';
 
