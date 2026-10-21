@@ -4,7 +4,6 @@ export class AudioManager {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private sfxBus: GainNode | null = null;
-  private narrationBus: GainNode | null = null;
   private ambienceBus: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private ambienceSources: AudioBufferSourceNode[] = [];
@@ -12,7 +11,6 @@ export class AudioManager {
   private gunshotBuffer: AudioBuffer | null = null;
   private distantTimer: number | null = null;
   private settings: Settings;
-  private ducked = false;
 
   constructor(settings: Settings) {
     this.settings = { ...settings };
@@ -30,12 +28,6 @@ export class AudioManager {
 
   setSettings(settings: Settings): void {
     this.settings = { ...settings };
-    this.applyVolumes();
-  }
-
-  setDucked(ducked: boolean): void {
-    if (this.ducked === ducked) return;
-    this.ducked = ducked;
     this.applyVolumes();
   }
 
@@ -161,7 +153,6 @@ export class AudioManager {
     }
     this.master = null;
     this.sfxBus = null;
-    this.narrationBus = null;
     this.ambienceBus = null;
     this.noiseBuffer = null;
     this.gunshotBuffer = null;
@@ -179,15 +170,12 @@ export class AudioManager {
       master.connect(context.destination);
       const sfx = context.createGain();
       sfx.connect(master);
-      const narration = context.createGain();
-      narration.connect(master);
       const ambience = context.createGain();
       ambience.connect(master);
 
       this.context = context;
       this.master = master;
       this.sfxBus = sfx;
-      this.narrationBus = narration;
       this.ambienceBus = ambience;
       this.noiseBuffer = this.createNoiseBuffer(context);
       this.applyVolumes();
@@ -203,16 +191,10 @@ export class AudioManager {
     const now = this.context.currentTime;
     const masterValue = Math.max(0, Math.min(1, this.settings.masterVolume));
     const sfxValue = Math.max(0, Math.min(1, this.settings.sfxVolume));
-    const narrationValue = Math.max(0, Math.min(1, this.settings.narrationVolume));
 
     this.master?.gain.setTargetAtTime(masterValue, now, 0.05);
-    this.sfxBus?.gain.setTargetAtTime(sfxValue * (this.ducked ? 0.55 : 1), now, 0.08);
-    this.narrationBus?.gain.setTargetAtTime(narrationValue, now, 0.05);
-    this.ambienceBus?.gain.setTargetAtTime(
-      sfxValue * (this.ducked ? 0.16 : 0.5),
-      now,
-      0.1,
-    );
+    this.sfxBus?.gain.setTargetAtTime(sfxValue, now, 0.08);
+    this.ambienceBus?.gain.setTargetAtTime(sfxValue * 0.5, now, 0.1);
   }
 
   private createNoiseBuffer(context: AudioContext): AudioBuffer {

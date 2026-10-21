@@ -1,14 +1,12 @@
 export interface Settings {
   masterVolume: number;
   sfxVolume: number;
-  narrationVolume: number;
   subtitles: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   masterVolume: 0.8,
   sfxVolume: 0.8,
-  narrationVolume: 1,
   subtitles: true,
 };
 
@@ -22,11 +20,6 @@ export function loadSettings(): Settings {
     return {
       masterVolume: clamp(parsed.masterVolume ?? DEFAULT_SETTINGS.masterVolume, 0, 1),
       sfxVolume: clamp(parsed.sfxVolume ?? DEFAULT_SETTINGS.sfxVolume, 0, 1),
-      narrationVolume: clamp(
-        parsed.narrationVolume ?? DEFAULT_SETTINGS.narrationVolume,
-        0,
-        1,
-      ),
       subtitles: parsed.subtitles ?? DEFAULT_SETTINGS.subtitles,
     };
   } catch {

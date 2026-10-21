@@ -171,6 +171,33 @@ test('player is downed, sees the countdown, and respawns', async ({ page }) => {
   expect(state.hp).toBe(100);
 });
 
+test('story text is shown without calling speech synthesis', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __speechCalls: number }).__speechCalls = 0;
+    if (window.speechSynthesis) {
+      const original = window.speechSynthesis.speak.bind(window.speechSynthesis);
+      window.speechSynthesis.speak = (utterance: SpeechSynthesisUtterance) => {
+        (window as unknown as { __speechCalls: number }).__speechCalls += 1;
+        return original(utterance);
+      };
+    }
+  });
+
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  const subtitle = page.locator('[data-hud="subtitle"]');
+  await expect(subtitle).toHaveClass(/is-visible/);
+  await expect(subtitle).not.toHaveText('');
+
+  const speechCalls = await page.evaluate(
+    () => (window as unknown as { __speechCalls: number }).__speechCalls,
+  );
+  expect(speechCalls).toBe(0);
+});
+
 test('subtitles can be disabled from the pause menu', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();

@@ -64,7 +64,7 @@ export class BattleRuntime {
     this.battleScene = createBattleScene(host);
     this.battleScene.setPixelRatio(this.pixelRatio);
     this.audio = new AudioManager(this.settings);
-    this.narration = new NarrationPlayer(this.audio, this.settings, {
+    this.narration = new NarrationPlayer(this.settings, {
       onLineStart: (text) => this.hud.setSubtitle(text),
       onLineEnd: () => this.hud.hideSubtitle(),
     });

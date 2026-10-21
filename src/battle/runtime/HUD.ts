@@ -105,10 +105,6 @@ export class HUD {
               <input type="range" min="0" max="1" step="0.05" data-setting="sfxVolume" />
             </label>
             <label class="setting-row">
-              <span>旁白</span>
-              <input type="range" min="0" max="1" step="0.05" data-setting="narrationVolume" />
-            </label>
-            <label class="setting-row">
               <span>字幕</span>
               <input type="checkbox" data-setting="subtitles" />
             </label>
