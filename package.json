@@ -1,7 +1,7 @@
 {
   "name": "campaign-1934",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Campaign 1934 - Long March battle simulation web experience",
   "license": "Apache-2.0",
   "type": "module",
