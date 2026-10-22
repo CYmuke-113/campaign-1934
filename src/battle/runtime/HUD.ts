@@ -29,6 +29,8 @@ export class HUD {
   private readonly damageVignette: HTMLElement;
   private readonly hitMarker: HTMLElement;
   private readonly lockHint: HTMLElement;
+  private readonly stagingOverlay: HTMLElement;
+  private readonly stagingCount: HTMLElement;
   private readonly downOverlay: HTMLElement;
   private readonly downTitle: HTMLElement;
   private readonly downCount: HTMLElement;
@@ -72,6 +74,14 @@ export class HUD {
           <span class="ammo-mag" data-hud="ammo-mag">10</span>
           <span class="ammo-reserve" data-hud="ammo-reserve">/ 120</span>
           <span class="reload-hint" data-hud="reload">R 换弹</span>
+        </div>
+      </div>
+      <div class="staging-overlay" data-testid="staging-overlay" data-hud="staging">
+        <div class="staging-card">
+          <p class="eyebrow">部队集结</p>
+          <h2>等待号角</h2>
+          <div class="staging-count" data-hud="staging-count">3</div>
+          <p class="staging-hint">红军队伍正在进入出发阵地</p>
         </div>
       </div>
       <div class="down-overlay" data-hud="down">
@@ -133,6 +143,8 @@ export class HUD {
     this.damageVignette = this.query('[data-hud="damage"]');
     this.hitMarker = this.query('[data-hud="hit-marker"]');
     this.lockHint = this.query('[data-hud="lock-hint"]');
+    this.stagingOverlay = this.query('[data-hud="staging"]');
+    this.stagingCount = this.query('[data-hud="staging-count"]');
     this.downOverlay = this.query('[data-hud="down"]');
     this.downTitle = this.query('[data-hud="down-title"]');
     this.downCount = this.query('[data-hud="down-count"]');
@@ -194,6 +206,19 @@ export class HUD {
 
   setLocked(locked: boolean): void {
     this.lockHint.classList.toggle('is-hidden', locked || this.paused);
+  }
+
+  showStaging(seconds: number): void {
+    this.stagingOverlay.classList.add('is-visible');
+    this.stagingCount.textContent = String(Math.max(0, Math.ceil(seconds)));
+  }
+
+  updateStaging(seconds: number): void {
+    this.stagingCount.textContent = String(Math.max(0, Math.ceil(seconds)));
+  }
+
+  hideStaging(): void {
+    this.stagingOverlay.classList.remove('is-visible');
   }
 
   setSubtitle(text: string): void {

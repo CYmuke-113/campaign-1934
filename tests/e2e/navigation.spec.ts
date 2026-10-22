@@ -1,7 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
+async function waitForBattleStart(page: Page): Promise<void> {
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('[data-battle-started="true"]')).toBeVisible({
+    timeout: 8_000,
+  });
+}
+
 async function completeQuiz(page: Page): Promise<void> {
-  await expect(page.getByTestId('quiz-screen')).toBeVisible();
+  await expect(page.getByTestId('quiz-screen')).toBeVisible({ timeout: 8_000 });
   for (let question = 0; question < 5; question += 1) {
     await page.locator('[data-correct="true"]').click();
     await page.getByTestId('quiz-next').click();
@@ -10,6 +17,19 @@ async function completeQuiz(page: Page): Promise<void> {
   await expect(page.getByTestId('quiz-score')).toContainText('5');
   await page.getByTestId('quiz-finish').click();
 }
+
+test('battle begins after a three-second staging countdown', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('staging-overlay')).toHaveClass(/is-visible/);
+  await expect(page.locator('[data-battle-started="true"]')).toBeVisible({
+    timeout: 8_000,
+  });
+  await expect(page.getByTestId('staging-overlay')).not.toHaveClass(/is-visible/);
+});
 
 test('walks from the introduction to the battle shell and back', async ({ page }) => {
   await page.goto('/');
@@ -27,7 +47,7 @@ test('walks from the introduction to the battle shell and back', async ({ page }
 
   await page.getByTestId('battle-card-luding').click();
   await expect(page.getByTestId('battle-loading')).toBeVisible();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   await expect(page.locator('canvas')).toBeVisible();
 
   await expect(page.getByTestId('pause-overlay')).not.toHaveClass(/is-open/);
@@ -49,7 +69,7 @@ test('battle deploys bots without showing faction counts', async ({ page }) => {
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
 
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('[data-hud="phase"]')).toContainText('丛林接敌');
 
@@ -67,7 +87,7 @@ test('player can lock the pointer, move, and fire', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   const startZ = await page.evaluate(
     () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.z,
@@ -99,7 +119,7 @@ test('rifle uses automatic fire and reloads automatically when empty', async ({ 
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   const result = await page.evaluate(() => {
     const weapon = (window as unknown as { __battleDebug: any }).__battleDebug.weapon;
@@ -127,13 +147,13 @@ test('player can jump with the space key', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   const before = await page.evaluate(
     () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.y,
   );
   await page.keyboard.press('Space');
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(500);
   const during = await page.evaluate(
     () => (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.y,
   );
@@ -144,7 +164,7 @@ test('player can fall off the bridge and see the fall-down state', async ({ page
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   await page.evaluate(() => {
     const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
@@ -165,7 +185,7 @@ test('leaving the Red main line triggers an artillery punishment', async ({ page
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   await page.evaluate(() => {
     (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.set(0, 9.65, 20);
@@ -180,7 +200,7 @@ test('damage flashes the edge and low health keeps it red', async ({ page }) => 
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   await page.evaluate(() => {
     const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
     debug.bots.setKmtModifiers(0, 0.1);
@@ -200,7 +220,7 @@ test('the campaign moves from jungle to bridge to street', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   const phase = page.locator('[data-hud="phase"]');
   await expect(phase).toContainText('丛林接敌');
@@ -224,7 +244,7 @@ test('phase progression through the director reaches the result screen', async (
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
 
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   const panel = page.getByTestId('debug-panel');
   await expect(panel).toBeVisible();
 
@@ -243,7 +263,7 @@ test('second charge destroys the bunker machine gun', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   const skip = page.getByTestId('debug-panel').locator('[data-debug-action="skip"]');
   await skip.click();
@@ -266,7 +286,7 @@ test('player is downed, sees the countdown, and respawns', async ({ page }) => {
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
 
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   await page.evaluate(() => {
     const debug = (window as unknown as { __battleDebug: any }).__battleDebug;
     debug.bots.setKmtModifiers(0, 0.1);
@@ -301,7 +321,7 @@ test('story text is shown without calling speech synthesis', async ({ page }) =>
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
 
   const subtitle = page.locator('[data-hud="subtitle"]');
   await expect(subtitle).toHaveClass(/is-visible/);
@@ -318,7 +338,7 @@ test('subtitles can be disabled from the pause menu', async ({ page }) => {
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
 
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   await page.keyboard.press('Escape');
   const pause = page.getByTestId('pause-overlay');
   await expect(pause).toHaveClass(/is-open/);
@@ -336,11 +356,18 @@ test('debug victory reaches the result screen', async ({ page }) => {
   await page.getByTestId('intro-next').click();
   await page.getByTestId('battle-card-luding').click();
 
-  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+  await waitForBattleStart(page);
   await expect(page.getByTestId('debug-panel')).toBeVisible();
 
   await page.getByTestId('debug-panel').locator('[data-debug-action="victory"]').click();
 
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as unknown as { __battleDebug: any }).__battleDebug.convoyActive(),
+      ),
+    )
+    .toBe(true);
   await completeQuiz(page);
   await expect(page.locator('.result-shell h1')).toHaveText('夺桥成功', { timeout: 8_000 });
   await expect(page.getByTestId('result-replay')).toBeVisible();

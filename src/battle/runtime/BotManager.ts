@@ -413,6 +413,21 @@ export class BotManager {
     return this.raycastTargets;
   }
 
+  repulseFrontRedBots(count: number): number {
+    const front = this.bots
+      .filter((bot) => bot.alive && bot.faction === 'red')
+      .sort((a, b) => a.group.position.z - b.group.position.z)
+      .slice(0, Math.max(0, count));
+
+    for (const bot of front) {
+      if (bot.takeDamage(1000)) {
+        this.onBotDowned(bot, false);
+      }
+    }
+    this.refreshRaycastTargets();
+    return front.length;
+  }
+
   getBots(): readonly Bot[] {
     return this.bots;
   }

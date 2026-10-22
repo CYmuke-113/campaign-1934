@@ -57,6 +57,9 @@ export class BattleRuntime {
   private artilleryTimer = 10 + Math.random() * 8;
   private frontlineTimer = 0;
   private frontlineWarned = false;
+  private battleStarted = false;
+  private stagingEndsAt = performance.now() + 3000;
+  private pendingNarration: string | null = null;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
   private lowFpsWindows = 0;
@@ -180,6 +183,10 @@ export class BattleRuntime {
       onVictory: () => this.handleVictory(),
     });
 
+    this.player.setEnabled(false);
+    this.weapon.setEnabled(false);
+    this.hud.showStaging(3);
+    this.audio.playHorn();
     this.resize();
     window.addEventListener('resize', this.handleResize);
     this.host.addEventListener('pointerdown', this.handleFirstPointer, { once: true });
@@ -195,6 +202,8 @@ export class BattleRuntime {
         bots: this.bots,
         director: this.director,
         machineGunDestroyed: () => this.battleScene.isMachineGunDestroyed(),
+        battleStarted: () => this.battleStarted,
+        convoyActive: () => this.battleScene.isConvoyActive(),
       };
     }
   }
@@ -231,18 +240,29 @@ export class BattleRuntime {
     this.lastTime = now;
 
     if (!this.paused && !this.ended) {
-      this.director.update(dt);
-      this.player.update(dt);
-      this.world.playerPosition.copy(this.player.position);
-      this.world.playerAlive = this.player.isAlive;
-      this.world.playerDowned = this.player.isDowned;
-      this.bots.update(dt, this.world);
-      this.weapon.update(dt);
-      this.battleScene.update(dt);
-      this.tracers.update(dt);
-      this.updateArtillery(dt);
-      this.updateFrontline(dt);
-      this.updateFps(dt);
+      if (!this.battleStarted) {
+        const remaining = Math.max(0, (this.stagingEndsAt - performance.now()) / 1000);
+        this.hud.updateStaging(remaining);
+        this.battleScene.update(dt);
+        this.tracers.update(dt);
+        this.updateFps(dt);
+        if (remaining <= 0) {
+          this.beginBattle();
+        }
+      } else {
+        this.director.update(dt);
+        this.player.update(dt);
+        this.world.playerPosition.copy(this.player.position);
+        this.world.playerAlive = this.player.isAlive;
+        this.world.playerDowned = this.player.isDowned;
+        this.bots.update(dt, this.world);
+        this.weapon.update(dt);
+        this.battleScene.update(dt);
+        this.tracers.update(dt);
+        this.updateArtillery(dt);
+        this.updateFrontline(dt);
+        this.updateFps(dt);
+      }
     }
 
     this.battleScene.renderer.render(this.battleScene.scene, this.battleScene.camera);
@@ -284,17 +304,30 @@ export class BattleRuntime {
       this.currentZone = phaseConfig.zone;
       this.bots.setBattleZone(phaseConfig.zone);
       const spawnZ =
-        phaseConfig.zone === 'jungle' ? 68 : phaseConfig.zone === 'bridge' ? 26 : -38;
+        phaseConfig.zone === 'jungle' ? 73 : phaseConfig.zone === 'bridge' ? 26 : -38;
       this.player.setSpawnPoint(0, spawnZ);
       this.player.teleportTo(0, spawnZ);
     }
     this.bots.setPhase(index);
+    if (index === 2) {
+      // The first assault has failed: the leading Red bots are cut down,
+      // visibly pulling the line back before the second charge.
+      this.bots.repulseFrontRedBots(3);
+    }
     const text = NARRATION[narrationId];
     if (text) {
-      this.narration.speak(text);
+      if (this.battleStarted) {
+        this.narration.speak(text);
+      } else {
+        this.pendingNarration = text;
+      }
     }
     this.audio.playUi();
-    this.hud.setSubtitle(text ?? phaseName);
+    if (this.battleStarted) {
+      this.hud.setSubtitle(text ?? phaseName);
+    } else {
+      this.hud.setSubtitle('部队集结，等待号角。');
+    }
 
     if (index < 2) {
       this.battleScene.setMachineGunFiring(true);
@@ -343,7 +376,8 @@ export class BattleRuntime {
     this.ended = true;
     this.player.setEnabled(false);
     this.weapon.setEnabled(false);
-    this.hud.setSubtitle('红军夺桥成功，泸定桥被牢牢控制。');
+    this.battleScene.startEnemyConvoy();
+    this.hud.setSubtitle('红军夺桥成功。敌军残部乘车沿公路撤退。');
     this.audio.playVictory();
     if (document.pointerLockElement) {
       document.exitPointerLock();
@@ -356,7 +390,7 @@ export class BattleRuntime {
     this.victoryTimer = window.setTimeout(() => {
       this.victoryTimer = null;
       this.options.onVictory(summary);
-    }, 2200);
+    }, 5000);
   }
 
   private forceVictory(): void {
@@ -414,6 +448,24 @@ export class BattleRuntime {
       Math.max(1, this.host.clientWidth),
       Math.max(1, this.host.clientHeight),
     );
+  }
+
+  private beginBattle(): void {
+    this.battleStarted = true;
+    this.hud.hideStaging();
+    this.player.setEnabled(true);
+    this.weapon.setEnabled(true);
+    this.audio.unlock();
+    this.audio.playHorn();
+    const text = this.pendingNarration;
+    this.pendingNarration = null;
+    if (text) {
+      this.narration.speak(text);
+      this.hud.setSubtitle(text);
+    }
+    this.host
+      .closest('.battle-screen')
+      ?.setAttribute('data-battle-started', 'true');
   }
 
   private updateFrontline(dt: number): void {

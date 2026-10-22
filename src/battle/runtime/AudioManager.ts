@@ -88,6 +88,12 @@ export class AudioManager {
     this.tone(520, 0.05, 0.035);
   }
 
+  playHorn(): void {
+    this.tone(196, 0.55, 0.07);
+    this.tone(294, 0.6, 0.06, 0.12);
+    this.tone(392, 0.8, 0.055, 0.26);
+  }
+
   playVictory(): void {
     const notes = [261.63, 329.63, 392, 523.25];
     notes.forEach((frequency, index) => {

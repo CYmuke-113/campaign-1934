@@ -29,6 +29,8 @@ export interface BattleScene {
   destroyMachineGun(): void;
   isMachineGunDestroyed(): boolean;
   spawnArtilleryStrike(position: THREE.Vector3): void;
+  startEnemyConvoy(): void;
+  isConvoyActive(): boolean;
   dispose(): void;
 }
 
@@ -47,7 +49,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
 
   const camera = new THREE.PerspectiveCamera(72, width / height, 0.1, 520);
   camera.rotation.order = 'YXZ';
-  camera.position.set(0, DECK_Y + 1.65, 68);
+  camera.position.set(0, DECK_Y + 1.65, 73);
   scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer({
@@ -862,6 +864,49 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     scene.add(rubble);
   }
 
+  const convoyGroups: THREE.Group[] = [];
+  const convoySoldierMaterial = track(
+    new THREE.MeshStandardMaterial({ color: 0x8b7b55, roughness: 0.9 }),
+  );
+  const startEnemyConvoy = (): void => {
+    if (convoyGroups.length > 0) return;
+    for (let i = 0; i < 2; i += 1) {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(
+        track(new THREE.BoxGeometry(2.2, 1.45, 4.5)),
+        vehicleMaterial,
+      );
+      body.position.y = 0.85;
+      group.add(body);
+      const cab = new THREE.Mesh(
+        track(new THREE.BoxGeometry(2.0, 0.9, 1.3)),
+        vehicleMaterial,
+      );
+      cab.position.set(0, 1.75, 1.2);
+      group.add(cab);
+      for (const wheelZ of [-1.4, 1.4]) {
+        for (const wheelX of [-1.05, 1.05]) {
+          const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+          wheel.rotation.z = Math.PI / 2;
+          wheel.position.set(wheelX, 0.4, wheelZ);
+          group.add(wheel);
+        }
+      }
+      for (let s = 0; s < 3; s += 1) {
+        const soldier = new THREE.Mesh(
+          track(new THREE.BoxGeometry(0.35, 0.9, 0.35)),
+          convoySoldierMaterial,
+        );
+        soldier.position.set(-0.55 + s * 0.55, 1.85, -1.3 + (s % 2) * 0.7);
+        group.add(soldier);
+      }
+      group.position.set(i === 0 ? -2.4 : 2.4, 8, -52 - i * 9);
+      scene.add(group);
+      convoyGroups.push(group);
+    }
+  };
+  const isConvoyActive = (): boolean => convoyGroups.length > 0;
+
   // Rain
   const rainCount = 760;
   const rainPositions = new Float32Array(rainCount * 3);
@@ -1013,6 +1058,15 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       }
     }
 
+    for (let i = convoyGroups.length - 1; i >= 0; i -= 1) {
+      const group = convoyGroups[i];
+      group.position.z -= dt * 7;
+      if (group.position.z < -96) {
+        scene.remove(group);
+        convoyGroups.splice(i, 1);
+      }
+    }
+
     for (let i = artilleryBursts.length - 1; i >= 0; i -= 1) {
       const burst = artilleryBursts[i];
       burst.life -= dt;
@@ -1092,7 +1146,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       worldMinZ: -90,
       worldMaxZ: 82,
     },
-    redSpawn: new THREE.Vector3(0, DECK_Y, 68),
+    redSpawn: new THREE.Vector3(0, DECK_Y, 73),
     kmtSpawn: new THREE.Vector3(0, DECK_Y, BUNKER_CENTER_Z),
     machineGun: machineGunGroup,
     colliders,
@@ -1104,6 +1158,8 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     destroyMachineGun,
     isMachineGunDestroyed,
     spawnArtilleryStrike,
+    startEnemyConvoy,
+    isConvoyActive,
     dispose,
   };
 }

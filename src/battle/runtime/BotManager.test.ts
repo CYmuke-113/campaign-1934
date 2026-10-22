@@ -98,6 +98,25 @@ describe('Bot falling', () => {
     assets.dispose();
   });
 
+  it('cuts down the leading Red bots to show a repulse', () => {
+    const scene = new THREE.Scene();
+    const onBotDowned = vi.fn();
+    const manager = new BotManager({ scene, onBotDowned });
+    manager.spawnSquad('red', 4);
+    const front = manager
+      .getBots()
+      .filter((bot) => bot.alive)
+      .sort((a, b) => a.group.position.z - b.group.position.z);
+
+    const count = manager.repulseFrontRedBots(2);
+
+    expect(count).toBe(2);
+    expect(front[0].alive).toBe(false);
+    expect(front[1].alive).toBe(false);
+    expect(onBotDowned).toHaveBeenCalledTimes(2);
+    manager.dispose();
+  });
+
   it('spawns Red reinforcements in a rear formation', () => {
     const scene = new THREE.Scene();
     const manager = new BotManager({ scene, onBotDowned: vi.fn() });
