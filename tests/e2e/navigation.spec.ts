@@ -161,6 +161,21 @@ test('player can fall off the bridge and see the fall-down state', async ({ page
   await expect(page.locator('[data-hud="down-title"]')).toHaveText('坠桥');
 });
 
+test('leaving the Red main line triggers an artillery punishment', async ({ page }) => {
+  await page.goto('/?debug=1');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('battle-card-luding').click();
+  await expect(page.getByTestId('battle-screen')).toBeVisible({ timeout: 15_000 });
+
+  await page.evaluate(() => {
+    (window as unknown as { __battleDebug: any }).__battleDebug.camera.position.set(0, 9.65, 20);
+  });
+
+  await expect(page.locator('[data-hud="down"]')).toHaveClass(/is-visible/, {
+    timeout: 15_000,
+  });
+});
+
 test('damage flashes the edge and low health keeps it red', async ({ page }) => {
   await page.goto('/?debug=1');
   await page.getByTestId('intro-next').click();

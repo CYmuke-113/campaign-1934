@@ -6,6 +6,7 @@ import { PHASES } from '../../content/phases';
 import { BattleDirector } from '../core/BattleDirector';
 import { BattleStats } from '../core/BattleStats';
 import { artilleryDamageAt, isInArtilleryBlast } from '../core/artillery';
+import { isOutOfFrontline } from '../core/frontline';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
@@ -54,6 +55,8 @@ export class BattleRuntime {
   private machineGunTimer: number | null = null;
   private currentZone: BattleZone | null = null;
   private artilleryTimer = 10 + Math.random() * 8;
+  private frontlineTimer = 0;
+  private frontlineWarned = false;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
   private lowFpsWindows = 0;
@@ -237,6 +240,7 @@ export class BattleRuntime {
       this.battleScene.update(dt);
       this.tracers.update(dt);
       this.updateArtillery(dt);
+      this.updateFrontline(dt);
       this.updateFps(dt);
     }
 
@@ -407,6 +411,51 @@ export class BattleRuntime {
       Math.max(1, this.host.clientWidth),
       Math.max(1, this.host.clientHeight),
     );
+  }
+
+  private updateFrontline(dt: number): void {
+    if (!this.currentZone || this.ended) return;
+    if (this.player.isDowned) {
+      this.frontlineTimer = 0;
+      this.frontlineWarned = false;
+      return;
+    }
+
+    const redBots = this.bots.getBots().filter((bot) => bot.alive && bot.faction === 'red');
+    let nearestRedDistance = Number.POSITIVE_INFINITY;
+    for (const bot of redBots) {
+      nearestRedDistance = Math.min(
+        nearestRedDistance,
+        bot.group.position.distanceTo(this.player.position),
+      );
+    }
+
+    const outOfLine = isOutOfFrontline(
+      this.currentZone,
+      this.player.position.z,
+      nearestRedDistance,
+    );
+    if (!outOfLine) {
+      this.frontlineTimer = 0;
+      this.frontlineWarned = false;
+      return;
+    }
+
+    if (!this.frontlineWarned) {
+      this.hud.setSubtitle('你已脱离红军战线，敌军火力即将覆盖！');
+      this.frontlineWarned = true;
+    }
+
+    this.frontlineTimer += dt;
+    if (this.frontlineTimer >= 2) {
+      this.frontlineTimer = 0;
+      this.frontlineWarned = false;
+      const target = this.player.position.clone();
+      target.y = 8;
+      this.battleScene.spawnArtilleryStrike(target);
+      this.audio.playExplosion();
+      this.player.takeDamage(100);
+    }
   }
 
   private updateArtillery(dt: number): void {
