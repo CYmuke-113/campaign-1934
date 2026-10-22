@@ -80,6 +80,24 @@ describe('Bot falling', () => {
     manager.dispose();
   });
 
+  it('keeps bunker-roof troops at their elevated base height', () => {
+    const assets = createSoldierAssets();
+    const bot = new Bot(
+      'bot_roof',
+      assets,
+      'kmt',
+      false,
+      new THREE.Vector3(0, 12.25, -34),
+    );
+    bot.zone = 'bridge';
+    bot.setPhase(2);
+    bot.updateMovement(0.1);
+    expect(bot.group.position.y).toBeCloseTo(12.25, 2);
+
+    bot.dispose();
+    assets.dispose();
+  });
+
   it('spawns Red reinforcements in a rear formation', () => {
     const scene = new THREE.Scene();
     const manager = new BotManager({ scene, onBotDowned: vi.fn() });

@@ -41,6 +41,7 @@ export class Bot {
   hp = 100;
   zone: BattleZone = 'jungle';
   state: BotState = 'advance';
+  baseY = 8;
   targetZ = 40;
   laneX = 0;
   speed = 1.4;
@@ -103,6 +104,7 @@ export class Bot {
     if (faction === 'kmt') this.laneX = (Math.random() - 0.5) * 8;
     this.group.visible = true;
     this.group.position.copy(position);
+    this.baseY = position.y;
     this.group.rotation.set(0, faction === 'red' ? Math.PI : 0, 0);
     this.view.reset();
     this.setPhase(0);
@@ -132,6 +134,13 @@ export class Bot {
     } else {
       // Nationalist troops hold inside the far-bank bunker, never on the bridge.
       this.targetZ = -34.5 - Math.random() * 2.5;
+    }
+
+    if (this.baseY > 10) {
+      // Troops on the bunker roof hold their firing position.
+      this.targetZ = this.group.position.z;
+      this.state = 'hold';
+      return;
     }
 
     this.state = this.group.position.z > this.targetZ ? 'advance' : 'hold';
@@ -251,7 +260,7 @@ export class Bot {
     const moving = distance > 0.4 && this.state === 'advance';
     this.view.setMoving(moving);
     this.view.update(dt);
-    this.group.position.y = 8;
+    this.group.position.y = this.baseY;
   }
 
   dispose(): void {
@@ -631,6 +640,13 @@ export class BotManager {
     if (faction === 'red') {
       const lane = (Math.random() - 0.5) * 1.7;
       return new THREE.Vector3(lane, 8, 27.5 + Math.random() * 2.0);
+    }
+    if (Math.random() < 0.35) {
+      return new THREE.Vector3(
+        (Math.random() - 0.5) * 14,
+        12.25,
+        -32.5 - Math.random() * 3,
+      );
     }
     return new THREE.Vector3((Math.random() - 0.5) * 8, 8, -33 - Math.random() * 4);
   }

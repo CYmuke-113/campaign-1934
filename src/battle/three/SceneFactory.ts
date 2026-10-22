@@ -357,22 +357,28 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     scene.add(mesh);
   };
 
-  addBunkerBox(13, 1.0, 0.55, 0, DECK_Y + 0.5, BUNKER_WALL_Z, bunkerMaterial);
-  for (const x of [-5.5, -3.3, -1.1, 1.1, 3.3, 5.5]) {
-    addBunkerBox(0.55, 2.4, 0.55, x, DECK_Y + 1.7, BUNKER_WALL_Z, bunkerMaterial);
+  addBunkerBox(20, 1.2, 0.55, 0, DECK_Y + 0.6, BUNKER_WALL_Z, bunkerMaterial);
+  for (const x of [-9, -7, -5, -3, 3, 5, 7, 9]) {
+    addBunkerBox(0.55, 3.6, 0.55, x, DECK_Y + 1.8, BUNKER_WALL_Z, bunkerMaterial);
   }
-  addBunkerBox(13, 0.45, 0.55, 0, DECK_Y + 3.05, BUNKER_WALL_Z, bunkerMaterial);
-  addBunkerBox(13, 0.3, 4.7, 0, DECK_Y + 3.35, BUNKER_CENTER_Z + 0.2, bunkerDarkMaterial);
-  addBunkerBox(0.55, 3.1, 5.2, -6.25, DECK_Y + 1.55, BUNKER_CENTER_Z, bunkerMaterial);
-  addBunkerBox(0.55, 3.1, 5.2, 6.25, DECK_Y + 1.55, BUNKER_CENTER_Z, bunkerMaterial);
+  addBunkerBox(20, 0.5, 0.55, 0, DECK_Y + 3.85, BUNKER_WALL_Z, bunkerMaterial);
+  addBunkerBox(20, 0.3, 6.2, 0, DECK_Y + 4.05, BUNKER_CENTER_Z, bunkerDarkMaterial);
+  addBunkerBox(0.55, 4.5, 6.5, -9.5, DECK_Y + 2.25, BUNKER_CENTER_Z, bunkerMaterial);
+  addBunkerBox(0.55, 4.5, 6.5, 9.5, DECK_Y + 2.25, BUNKER_CENTER_Z, bunkerMaterial);
+
+  // Roof parapet makes the troops on top visible but still partially covered.
+  addBunkerBox(20, 1.0, 0.3, 0, DECK_Y + 4.65, BUNKER_WALL_Z, bunkerMaterial);
+  addBunkerBox(20, 1.0, 0.3, 0, DECK_Y + 4.65, BUNKER_CENTER_Z - 2.8, bunkerMaterial);
+  addBunkerBox(0.3, 1.0, 6.2, -9.5, DECK_Y + 4.65, BUNKER_CENTER_Z, bunkerMaterial);
+  addBunkerBox(0.3, 1.0, 6.2, 9.5, DECK_Y + 4.65, BUNKER_CENTER_Z, bunkerMaterial);
 
   // Back-wall gate and a short stair corridor into the street, instead of
   // letting the player walk through a solid wall.
-  addBunkerBox(5.4, 3.1, 0.55, -3.8, DECK_Y + 1.55, BUNKER_CENTER_Z - 2.4, bunkerMaterial);
-  addBunkerBox(5.4, 3.1, 0.55, 3.8, DECK_Y + 1.55, BUNKER_CENTER_Z - 2.4, bunkerMaterial);
+  addBunkerBox(8.9, 4.5, 0.55, -5.55, DECK_Y + 2.25, BUNKER_CENTER_Z - 2.4, bunkerMaterial);
+  addBunkerBox(8.9, 4.5, 0.55, 5.55, DECK_Y + 2.25, BUNKER_CENTER_Z - 2.4, bunkerMaterial);
   colliders.push(
-    colliderFromCenter(-3.8, BUNKER_CENTER_Z - 2.4, 5.4, 0.8, 3.1),
-    colliderFromCenter(3.8, BUNKER_CENTER_Z - 2.4, 5.4, 0.8, 3.1),
+    colliderFromCenter(-5.55, BUNKER_CENTER_Z - 2.4, 8.9, 0.8, 4.5),
+    colliderFromCenter(5.55, BUNKER_CENTER_Z - 2.4, 8.9, 0.8, 4.5),
   );
 
   const passageFloor = new THREE.Mesh(
