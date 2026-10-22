@@ -181,6 +181,30 @@ describe('BattleDirector', () => {
     expect(snapshot.redAlive + snapshot.kmtAlive).toBeLessThanOrEqual(40);
   });
 
+  it('spawns Red reinforcements as a squad batch', () => {
+    const batches: number[] = [];
+    const director = new BattleDirector(makePhases(60), {
+      spawn: () => true,
+      spawnSquad: (_faction, count) => {
+        batches.push(count);
+        return count;
+      },
+      onPhase: () => undefined,
+      onModifiers: () => undefined,
+      onRetreatKmt: () => undefined,
+      onVictory: () => undefined,
+    });
+
+    for (let i = 0; i < 10; i += 1) {
+      director.notifyDowned('red');
+    }
+    const spawned = director.spawnRedSquad(8);
+
+    expect(spawned).toBe(8);
+    expect(batches).toContain(8);
+    expect(director.snapshot.redAlive).toBe(18);
+  });
+
   it('backfills a key assault bot after it is downed', () => {
     const harness = createHarness(10);
     const initialKeySpawns = harness.spawned.filter((item) => item.key).length;

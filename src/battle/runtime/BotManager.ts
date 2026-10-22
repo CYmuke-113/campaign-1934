@@ -328,6 +328,35 @@ export class BotManager {
     });
   }
 
+  spawnSquad(faction: Faction, count: number): number {
+    let spawned = 0;
+    for (let i = 0; i < count; i += 1) {
+      let bot = this.bots.find(
+        (candidate) => candidate.inactive && candidate.faction === faction,
+      );
+      if (!bot) {
+        if (this.bots.length >= 60) break;
+        bot = new Bot(
+          `bot_${this.nextId}`,
+          this.assets,
+          faction,
+          false,
+          new THREE.Vector3(0, 8, 0),
+        );
+        this.nextId += 1;
+        this.scene.add(bot.group);
+        this.bots.push(bot);
+      }
+      const position = this.formationPosition(faction, spawned);
+      bot.zone = this.zone;
+      bot.reset(faction, false, position);
+      bot.setPhase(this.phaseIndex);
+      spawned += 1;
+    }
+    this.refreshRaycastTargets();
+    return spawned;
+  }
+
   setBattleZone(zone: BattleZone): void {
     if (this.zone === zone) return;
     this.zone = zone;
@@ -557,6 +586,15 @@ export class BotManager {
     if (bot.target.kind === 'player') return true;
     const target = this.bots.find((candidate) => candidate.id === bot.target?.botId);
     return Boolean(target && target.alive);
+  }
+
+  private formationPosition(_faction: Faction, index: number): THREE.Vector3 {
+    const rearZ = this.zone === 'jungle' ? 74 : this.zone === 'bridge' ? 28.8 : -40;
+    const columns =
+      this.zone === 'bridge' ? [-1.2, -0.4, 0.4, 1.2] : [-1.8, -0.6, 0.6, 1.8];
+    const row = Math.floor(index / 4);
+    const column = index % 4;
+    return new THREE.Vector3(columns[column], 8, rearZ - row * 1.1);
   }
 
   private makeSpawnPosition(faction: Faction): THREE.Vector3 {

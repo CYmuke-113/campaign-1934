@@ -55,6 +55,7 @@ export interface DirectorSnapshot {
 
 export interface DirectorCallbacks {
   spawn(faction: Faction, count: number, key?: boolean): boolean;
+  spawnSquad?: (faction: Faction, count: number) => number;
   onPhase(phase: PhaseConfig, index: number): void;
   onModifiers(accuracy: number, fireRate: number): void;
   onRetreatKmt(): void;

@@ -173,6 +173,7 @@ export class BattleRuntime {
 
     this.director = new BattleDirector(PHASES, {
       spawn: (faction, count, key) => this.bots.spawn(faction, count, key),
+      spawnSquad: (faction, count) => this.bots.spawnSquad(faction, count),
       onPhase: (phase, index) => this.handlePhase(phase.name, phase.narrationId, index),
       onModifiers: (accuracy, fireRate) => this.bots.setKmtModifiers(accuracy, fireRate),
       onRetreatKmt: () => this.bots.retreatKmt(),
@@ -284,6 +285,7 @@ export class BattleRuntime {
       this.bots.setBattleZone(phaseConfig.zone);
       const spawnZ =
         phaseConfig.zone === 'jungle' ? 68 : phaseConfig.zone === 'bridge' ? 26 : -38;
+      this.player.setSpawnPoint(0, spawnZ);
       this.player.teleportTo(0, spawnZ);
     }
     this.bots.setPhase(index);
@@ -332,6 +334,7 @@ export class BattleRuntime {
 
   private handlePlayerRespawn(): void {
     this.weapon.refill();
+    this.director.spawnRedSquad(8);
     this.hud.hideDown();
   }
 

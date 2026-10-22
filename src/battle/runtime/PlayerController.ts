@@ -211,6 +211,10 @@ export class PlayerController {
     this.applyRotation();
   }
 
+  setSpawnPoint(x: number, z: number): void {
+    this.spawnPosition.set(x, this.bounds.deckY, z);
+  }
+
   teleportTo(x: number, z: number): void {
     this.falling = false;
     this.fallVelocity = 0;

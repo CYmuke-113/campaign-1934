@@ -149,6 +149,35 @@ export class BattleDirector {
     // affect the fixed historical outcome. Stats are tracked by BattleStats.
   }
 
+  spawnRedSquad(count = 8): number {
+    const phase = this.phaseController.current;
+    const available = Math.max(
+      0,
+      Math.min(
+        count,
+        phase.red.maxAlive - this.redAlive,
+        MAX_RED_BOTS - this.redAlive,
+        MAX_TOTAL_BOTS - this.redAlive - this.kmtAlive,
+      ),
+    );
+    if (available <= 0) {
+      this.addPending('red', count);
+      return 0;
+    }
+
+    const spawned = this.callbacks.spawnSquad
+      ? this.callbacks.spawnSquad('red', available)
+      : this.spawnTo('red', available);
+
+    if (this.callbacks.spawnSquad) {
+      this.redAlive += spawned;
+      if (spawned < count) {
+        this.addPending('red', count - spawned);
+      }
+    }
+    return spawned;
+  }
+
   debugSkipPhase(): void {
     if (this.result) return;
     const remaining = Math.max(0, this.phaseController.current.durationSec - this.phaseController.timeInPhase);
@@ -176,7 +205,7 @@ export class BattleDirector {
 
     const redNeeded = Math.max(0, phase.red.initial - this.redAlive);
     const kmtNeeded = Math.max(0, phase.kmt.initial - this.kmtAlive);
-    this.spawnTo('red', redNeeded);
+    this.spawnRedSquad(redNeeded);
     this.spawnTo('kmt', kmtNeeded);
   }
 
@@ -190,7 +219,9 @@ export class BattleDirector {
         this.runtime.reinforcementTimer >= phase.red.reinforcementIntervalSec
       ) {
         this.runtime.reinforcementTimer -= phase.red.reinforcementIntervalSec;
-        const spawned = this.spawnTo('red', 1);
+        const spawned = this.spawnRedSquad(
+          Math.min(4, this.runtime.redReinforcementsLeft),
+        );
         if (spawned === 0) break;
         this.runtime.redReinforcementsLeft -= spawned;
       }
@@ -230,7 +261,7 @@ export class BattleDirector {
   private enforceInvariants(): void {
     if (this.phaseController.currentIndex >= 1) {
       if (this.redAlive < this.kmtAlive + 2 && this.runtime.emergencyCooldown <= 0) {
-        const spawned = this.spawnTo('red', 2);
+        const spawned = this.spawnRedSquad(4);
         this.runtime.emergencyCooldown = DIRECTOR_EMERGENCY_COOLDOWN_SECONDS;
         if (spawned === 0) {
           this.accuracy = Math.max(0.05, this.accuracy * 0.85);
@@ -240,7 +271,7 @@ export class BattleDirector {
     }
 
     if (this.redAlive === 0) {
-      this.spawnTo('red', 3);
+      this.spawnRedSquad(6);
       this.accuracy = Math.max(0.02, this.accuracy * 0.5);
       this.callbacks.onModifiers(this.accuracy, this.fireRate);
     }
@@ -251,8 +282,8 @@ export class BattleDirector {
 
     const redFloor = Math.max(12, phase.red.initial - 4);
     if (this.runtime.sustainRedTimer <= 0 && this.redAlive < redFloor) {
-      const spawned = this.spawnTo('red', 1);
-      this.runtime.sustainRedTimer = spawned > 0 ? 2.5 : 4;
+      const spawned = this.spawnRedSquad(8);
+      this.runtime.sustainRedTimer = spawned > 0 ? 6 : 4;
     }
 
     if (!this.runtime.retreatTriggered) {

@@ -80,6 +80,21 @@ describe('Bot falling', () => {
     manager.dispose();
   });
 
+  it('spawns Red reinforcements in a rear formation', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    const spawned = manager.spawnSquad('red', 8);
+    expect(spawned).toBe(8);
+
+    const bots = manager.getBots();
+    const rows = new Set(bots.map((bot) => Math.round(bot.group.position.z * 10) / 10));
+    expect(rows.size).toBe(2);
+    for (const bot of bots) {
+      expect(bot.group.position.z).toBeGreaterThan(70);
+    }
+    manager.dispose();
+  });
+
   it('repositions living bots when the battle zone changes', () => {
     const scene = new THREE.Scene();
     const manager = new BotManager({ scene, onBotDowned: vi.fn() });
