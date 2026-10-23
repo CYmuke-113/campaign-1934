@@ -362,9 +362,17 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     );
     mesh.position.set(x, y, z);
     scene.add(mesh);
+    bulletBlockers.push(mesh);
   };
 
-  addBunkerBox(20, 1.2, 0.55, 0, DECK_Y + 0.6, BUNKER_WALL_Z, bunkerMaterial);
+  // Leave a real central entrance. The front wall is split rather than being
+  // a decorative solid box that the player can walk through.
+  addBunkerBox(8.4, 1.2, 0.55, -5.8, DECK_Y + 0.6, BUNKER_WALL_Z, bunkerMaterial);
+  addBunkerBox(8.4, 1.2, 0.55, 5.8, DECK_Y + 0.6, BUNKER_WALL_Z, bunkerMaterial);
+  colliders.push(
+    colliderFromCenter(-5.8, BUNKER_WALL_Z, 8.4, 0.8, 1.2),
+    colliderFromCenter(5.8, BUNKER_WALL_Z, 8.4, 0.8, 1.2),
+  );
   for (const x of [-9, -7, -5, -3, 3, 5, 7, 9]) {
     addBunkerBox(0.55, 3.6, 0.55, x, DECK_Y + 1.8, BUNKER_WALL_Z, bunkerMaterial);
   }
@@ -372,6 +380,10 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   addBunkerBox(20, 0.3, 6.2, 0, DECK_Y + 4.05, BUNKER_CENTER_Z, bunkerDarkMaterial);
   addBunkerBox(0.55, 4.5, 6.5, -9.5, DECK_Y + 2.25, BUNKER_CENTER_Z, bunkerMaterial);
   addBunkerBox(0.55, 4.5, 6.5, 9.5, DECK_Y + 2.25, BUNKER_CENTER_Z, bunkerMaterial);
+  colliders.push(
+    colliderFromCenter(-9.5, BUNKER_CENTER_Z, 0.8, 6.5, 4.5),
+    colliderFromCenter(9.5, BUNKER_CENTER_Z, 0.8, 6.5, 4.5),
+  );
 
   // Roof parapet makes the troops on top visible but still partially covered.
   addBunkerBox(20, 1.0, 0.3, 0, DECK_Y + 4.65, BUNKER_WALL_Z, bunkerMaterial);
@@ -682,7 +694,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
 
   // Jungle approach before the bridge.
   const jungleGround = new THREE.Mesh(
-    track(new THREE.PlaneGeometry(64, 64)),
+    track(new THREE.PlaneGeometry(72, 72)),
     track(new THREE.MeshStandardMaterial({ color: 0x26362b, roughness: 1 })),
   );
   jungleGround.rotation.x = -Math.PI / 2;
@@ -694,9 +706,11 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     new THREE.MeshStandardMaterial({ color: 0x4a4336, roughness: 1 }),
   );
   for (const segment of [
-    { x: -2.2, z: 64, width: 2.6, length: 18, rotation: -0.08 },
-    { x: 2.4, z: 50, width: 2.4, length: 18, rotation: 0.1 },
-    { x: -1.4, z: 37, width: 2.8, length: 16, rotation: -0.05 },
+    { x: -11, z: 70, width: 2.5, length: 20, rotation: -0.42 },
+    { x: 9, z: 68, width: 2.4, length: 18, rotation: 0.48 },
+    { x: -7, z: 53, width: 2.2, length: 22, rotation: 0.34 },
+    { x: 10, z: 50, width: 2.6, length: 20, rotation: -0.38 },
+    { x: -2, z: 37, width: 2.4, length: 15, rotation: 0.2 },
   ]) {
     const path = new THREE.Mesh(
       track(new THREE.PlaneGeometry(segment.width, segment.length)),
@@ -716,12 +730,12 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   const canopyMaterial = track(
     new THREE.MeshStandardMaterial({ color: 0x2f4a38, roughness: 1 }),
   );
-  const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, 44);
-  const canopies = new THREE.InstancedMesh(canopyGeometry, canopyMaterial, 44);
-  for (let i = 0; i < 44; i += 1) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (5 + Math.random() * 21);
-    const z = 32 + Math.random() * 44;
+  const jungleTreeCount = 84;
+  const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, jungleTreeCount);
+  const canopies = new THREE.InstancedMesh(canopyGeometry, canopyMaterial, jungleTreeCount);
+  for (let i = 0; i < jungleTreeCount; i += 1) {
+    const x = -29 + ((i * 17) % 59) + (Math.random() - 0.5) * 1.2;
+    const z = 25 + ((i * 23) % 58) + (Math.random() - 0.5) * 1.2;
     const height = 3 + Math.random() * 3;
     colliders.push(colliderFromCenter(x, z, 0.9, 0.9, height));
     instanceDummy.position.set(x, 8 + height / 2, z);
@@ -750,11 +764,11 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   const bushMaterial = track(
     new THREE.MeshStandardMaterial({ color: 0x3a5741, roughness: 1 }),
   );
-  const bushes = new THREE.InstancedMesh(bushGeometry, bushMaterial, 34);
-  for (let i = 0; i < 34; i += 1) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (3.2 + Math.random() * 16);
-    const z = 32 + Math.random() * 44;
+  const jungleBushCount = 56;
+  const bushes = new THREE.InstancedMesh(bushGeometry, bushMaterial, jungleBushCount);
+  for (let i = 0; i < jungleBushCount; i += 1) {
+    const x = -27 + ((i * 13) % 55) + (Math.random() - 0.5);
+    const z = 26 + ((i * 19) % 56) + (Math.random() - 0.5);
     instanceDummy.position.set(x, 8.4, z);
     instanceDummy.rotation.set(0, Math.random() * Math.PI, 0);
     instanceDummy.scale.setScalar(0.6 + Math.random() * 0.9);
@@ -768,24 +782,40 @@ export function createBattleScene(host: HTMLElement): BattleScene {
 
   // Street and ruined houses after the bridgehead.
   const streetGround = new THREE.Mesh(
-    track(new THREE.PlaneGeometry(40, 72)),
+    track(new THREE.PlaneGeometry(64, 96)),
     track(new THREE.MeshStandardMaterial({ color: 0x3c3a35, roughness: 1 })),
   );
   streetGround.rotation.x = -Math.PI / 2;
-  streetGround.position.set(0, 7.85, -62);
+  streetGround.position.set(0, 7.85, -70);
   scene.add(streetGround);
 
-  const streetPath = new THREE.Mesh(
-    track(new THREE.PlaneGeometry(8, 66)),
-    track(new THREE.MeshStandardMaterial({ color: 0x555149, roughness: 1 })),
+  const streetMaterial = track(
+    new THREE.MeshStandardMaterial({ color: 0x555149, roughness: 1 }),
   );
-  streetPath.rotation.x = -Math.PI / 2;
-  streetPath.position.set(0, 7.9, -62);
-  scene.add(streetPath);
+  for (const segment of [
+    { x: 0, z: -48, width: 8, length: 24 },
+    { x: 0, z: -60, width: 48, length: 8 },
+    { x: -16, z: -71, width: 8, length: 26 },
+    { x: 16, z: -71, width: 8, length: 26 },
+    { x: 0, z: -83, width: 40, length: 8 },
+    { x: 0, z: -96, width: 10, length: 30 },
+  ]) {
+    const streetPath = new THREE.Mesh(
+      track(new THREE.PlaneGeometry(segment.width, segment.length)),
+      streetMaterial,
+    );
+    streetPath.rotation.x = -Math.PI / 2;
+    streetPath.position.set(segment.x, 7.9, segment.z);
+    scene.add(streetPath);
+  }
 
-  for (const side of [-1, 1]) {
-    for (const z of [-42, -50, -58, -66, -74, -82]) {
-      const x = side * (10 + Math.random() * 4);
+  const buildingSites = [
+    [-27, -44], [-27, -56], [-27, -72], [-27, -88],
+    [27, -44], [27, -56], [27, -72], [27, -88],
+    [-7, -70], [-7, -94], [7, -70], [7, -94],
+    [-17, -101], [17, -101],
+  ] as const;
+  for (const [x, z] of buildingSites) {
       const height = 3.5 + Math.random() * 2.5;
       const wall = new THREE.Mesh(
         track(new THREE.BoxGeometry(5, height, 6)),
@@ -808,19 +838,17 @@ export function createBattleScene(host: HTMLElement): BattleScene {
         track(new THREE.BoxGeometry(0.12, 1.2, 1.2)),
         bunkerDarkMaterial,
       );
-      windowMesh.position.set(x - side * 2.56, 9.6, z);
+      windowMesh.position.set(x + (x < 0 ? 2.56 : -2.56), 9.6, z);
       scene.add(windowMesh);
-    }
   }
 
   const trashMaterial = track(
     new THREE.MeshStandardMaterial({ color: 0x4b4c46, roughness: 0.8, metalness: 0.25 }),
   );
   const trashGeometry = track(new THREE.CylinderGeometry(0.35, 0.4, 0.9, 7));
-  for (let i = 0; i < 12; i += 1) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const x = side * (3.5 + Math.random() * 5.5);
-    const z = -44 - Math.random() * 36;
+  for (let i = 0; i < 20; i += 1) {
+    const x = -22 + ((i * 11) % 45) + (Math.random() - 0.5) * 1.5;
+    const z = -43 - ((i * 17) % 55) + (Math.random() - 0.5) * 1.5;
     const trash = new THREE.Mesh(trashGeometry, trashMaterial);
     trash.position.set(x, 8.45, z);
     scene.add(trash);
@@ -835,9 +863,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     new THREE.MeshStandardMaterial({ color: 0x1d1e1d, roughness: 0.95 }),
   );
   const wheelGeometry = track(new THREE.CylinderGeometry(0.38, 0.38, 0.26, 8));
-  for (const side of [-1, 1]) {
-    for (const z of [-52, -68, -80]) {
-      const x = side * 5.5;
+  for (const [x, z] of [[-10, -58], [13, -62], [-17, -78], [16, -82], [-6, -96], [8, -101]] as const) {
       const body = new THREE.Mesh(
         track(new THREE.BoxGeometry(2.2, 1.5, 4.5)),
         vehicleMaterial,
@@ -855,7 +881,6 @@ export function createBattleScene(host: HTMLElement): BattleScene {
           scene.add(wheel);
         }
       }
-    }
   }
 
   for (let i = 0; i < 14; i += 1) {
@@ -864,7 +889,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       track(new THREE.BoxGeometry(0.6 + Math.random(), 0.3, 0.7 + Math.random())),
       bunkerDarkMaterial,
     );
-    rubble.position.set(side * (2.5 + Math.random() * 7), 8.15, -40 - Math.random() * 40);
+    rubble.position.set(side * (2.5 + Math.random() * 18), 8.15, -40 - Math.random() * 62);
     rubble.rotation.y = Math.random() * Math.PI;
     scene.add(rubble);
   }
@@ -1200,8 +1225,8 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       minZ: -BRIDGE_HALF_LENGTH,
       maxZ: BRIDGE_HALF_LENGTH,
       deckY: DECK_Y,
-      worldMinZ: -90,
-      worldMaxZ: 82,
+      worldMinZ: -112,
+      worldMaxZ: 88,
     },
     redSpawn: new THREE.Vector3(0, DECK_Y, 73),
     kmtSpawn: new THREE.Vector3(0, DECK_Y, BUNKER_CENTER_Z),

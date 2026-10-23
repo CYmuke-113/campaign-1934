@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { Bot, BotManager, type BotWorld } from './BotManager';
 import { createSoldierAssets } from '../three/SoldierView';
+import { colliderFromCenter } from '../core/collision';
 
 function createWorld(): BotWorld {
   return {
@@ -159,5 +160,25 @@ describe('Bot falling', () => {
 
     bot.dispose();
     assets.dispose();
+  });
+
+  it('spreads jungle soldiers across separate cover positions', () => {
+    const scene = new THREE.Scene();
+    const colliders = Array.from({ length: 12 }, (_, index) =>
+      colliderFromCenter(-24 + (index % 6) * 9, 38 + Math.floor(index / 6) * 16, 2, 2, 3),
+    );
+    const manager = new BotManager({ scene, colliders, onBotDowned: vi.fn() });
+    manager.spawn('red', 10, false);
+
+    const targets = manager.getBots().map((bot) => ({ x: bot.laneX, z: bot.targetZ }));
+    expect(Math.max(...targets.map((point) => point.x)) - Math.min(...targets.map((point) => point.x)))
+      .toBeGreaterThan(18);
+    for (let i = 0; i < targets.length; i += 1) {
+      for (let j = i + 1; j < targets.length; j += 1) {
+        expect(Math.hypot(targets[i].x - targets[j].x, targets[i].z - targets[j].z))
+          .toBeGreaterThanOrEqual(3.6);
+      }
+    }
+    manager.dispose();
   });
 });

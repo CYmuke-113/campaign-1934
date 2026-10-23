@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { SHOT_DAMAGE } from '../core/constants';
 import { isBlockedAt, type Collider } from '../core/collision';
+import {
+  chooseSeparatedPoint,
+  coverPointsAround,
+  type GroundPoint,
+} from '../core/positioning';
 import type { BattleZone, Faction } from '../core/types';
 import {
   createSoldier,
@@ -241,7 +246,7 @@ export class Bot {
     }
 
     this.strafeTime += dt;
-    const maxX = this.zone === 'bridge' ? 1.35 : 6.5;
+    const maxX = this.zone === 'bridge' ? 1.35 : this.zone === 'jungle' ? 27 : 24;
     if (this.dodgeTimer > 0) {
       this.dodgeTimer -= dt;
       this.group.position.x = THREE.MathUtils.clamp(
@@ -284,12 +289,18 @@ export class BotManager {
   private kmtAccuracy = 0.2;
   private selfFallTimer = 8 + Math.random() * 8;
   private kmtFireRate = 1;
+  private readonly coverPoints: Record<BattleZone, GroundPoint[]>;
 
   constructor(options: BotManagerOptions) {
     this.assets = createSoldierAssets();
     this.scene = options.scene;
     this.colliders = options.colliders ?? [];
     this.onBotDowned = options.onBotDowned;
+    this.coverPoints = {
+      jungle: this.createCoverPoints('jungle'),
+      bridge: [],
+      street: this.createCoverPoints('street'),
+    };
   }
 
   get aliveRed(): number {
@@ -324,6 +335,7 @@ export class BotManager {
       bot.zone = this.zone;
       bot.reset(faction, isKey, position);
       bot.setPhase(this.phaseIndex);
+      this.assignCoverTarget(bot);
       spawned += 1;
     }
     this.refreshRaycastTargets();
@@ -360,6 +372,7 @@ export class BotManager {
       bot.zone = this.zone;
       bot.reset(faction, false, position);
       bot.setPhase(this.phaseIndex);
+      this.assignCoverTarget(bot);
       spawned += 1;
     }
     this.refreshRaycastTargets();
@@ -381,6 +394,7 @@ export class BotManager {
       bot.dodgeTimer = 0;
       bot.resetView();
       bot.setPhase(this.phaseIndex);
+      this.assignCoverTarget(bot);
     }
     this.refreshRaycastTargets();
   }
@@ -529,7 +543,7 @@ export class BotManager {
 
     const parity = Number(bot.id.split('_')[1] ?? 1) % 2 === 0 ? 1 : -1;
     const side = Math.abs(dx) > 0.08 ? Math.sign(dx) : parity;
-    const maxX = this.zone === 'bridge' ? 1.95 : 6.8;
+    const maxX = this.zone === 'bridge' ? 1.95 : this.zone === 'jungle' ? 27 : 24;
     bot.group.position.x = THREE.MathUtils.clamp(
       playerPosition.x + side * 1.7,
       -maxX,
@@ -640,16 +654,16 @@ export class BotManager {
   private randomSpawnPosition(faction: Faction): THREE.Vector3 {
     if (this.zone === 'jungle') {
       if (faction === 'red') {
-        return new THREE.Vector3((Math.random() - 0.5) * 22, 8, 62 + Math.random() * 16);
+        return new THREE.Vector3((Math.random() - 0.5) * 48, 8, 68 + Math.random() * 18);
       }
-      return new THREE.Vector3((Math.random() - 0.5) * 24, 8, 40 + Math.random() * 22);
+      return new THREE.Vector3((Math.random() - 0.5) * 52, 8, 36 + Math.random() * 28);
     }
 
     if (this.zone === 'street') {
       if (faction === 'red') {
-        return new THREE.Vector3((Math.random() - 0.5) * 18, 8, -38 - Math.random() * 16);
+        return new THREE.Vector3((Math.random() - 0.5) * 42, 8, -40 - Math.random() * 20);
       }
-      return new THREE.Vector3((Math.random() - 0.5) * 22, 8, -56 - Math.random() * 24);
+      return new THREE.Vector3((Math.random() - 0.5) * 46, 8, -60 - Math.random() * 28);
     }
 
     if (faction === 'red') {
@@ -672,5 +686,45 @@ export class BotManager {
       if (!bot.alive || !bot.group.visible) continue;
       this.raycastTargets.push(...bot.hitMeshes);
     }
+  }
+
+  private createCoverPoints(zone: BattleZone): GroundPoint[] {
+    const points: GroundPoint[] = [];
+    for (const collider of this.colliders) {
+      const centerZ = (collider.minZ + collider.maxZ) / 2;
+      const inZone =
+        zone === 'jungle'
+          ? centerZ >= 30
+          : zone === 'street'
+            ? centerZ <= -39
+            : centerZ > -39 && centerZ < 30;
+      if (!inZone) continue;
+      points.push(...coverPointsAround(collider, 1.1));
+    }
+    return points;
+  }
+
+  private assignCoverTarget(bot: Bot): void {
+    if (bot.zone === 'bridge') return;
+    const candidates = this.coverPoints[bot.zone].filter((point) => {
+      if (bot.zone === 'jungle') {
+        return bot.faction === 'red' ? point.z >= 38 && point.z <= 68 : point.z >= 34 && point.z <= 62;
+      }
+      return bot.faction === 'red' ? point.z <= -44 && point.z >= -74 : point.z <= -54;
+    });
+    const occupied = this.bots
+      .filter((candidate) => candidate !== bot && candidate.alive && candidate.zone === bot.zone)
+      .map((candidate) => ({ x: candidate.laneX, z: candidate.targetZ }));
+    const numericId = Number(bot.id.split('_')[1] ?? 0);
+    const point = chooseSeparatedPoint(
+      candidates,
+      occupied,
+      3.6,
+      numericId * 7 + this.phaseIndex * 11,
+    );
+    if (!point) return;
+    bot.laneX = point.x;
+    bot.targetZ = point.z;
+    bot.state = 'advance';
   }
 }
