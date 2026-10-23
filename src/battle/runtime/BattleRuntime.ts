@@ -5,7 +5,11 @@ import { NARRATION } from '../../content/narration';
 import { PHASES } from '../../content/phases';
 import { BattleDirector } from '../core/BattleDirector';
 import { BattleStats } from '../core/BattleStats';
-import { artilleryDamageAt, isInArtilleryBlast } from '../core/artillery';
+import {
+  artilleryDamageAt,
+  isInArtilleryBlast,
+  nextArtilleryInterval,
+} from '../core/artillery';
 import { isOutOfFrontline } from '../core/frontline';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
@@ -54,7 +58,7 @@ export class BattleRuntime {
   private fpsFrames = 0;
   private machineGunTimer: number | null = null;
   private currentZone: BattleZone | null = null;
-  private artilleryTimer = 10 + Math.random() * 8;
+  private artilleryTimer = nextArtilleryInterval(Math.random());
   private frontlineTimer = 0;
   private frontlineWarned = false;
   private battleStarted = false;
@@ -204,6 +208,7 @@ export class BattleRuntime {
         machineGunDestroyed: () => this.battleScene.isMachineGunDestroyed(),
         battleStarted: () => this.battleStarted,
         convoyActive: () => this.battleScene.isConvoyActive(),
+        activeArtilleryShells: () => this.battleScene.getActiveArtilleryShellCount(),
       };
     }
   }
@@ -507,9 +512,11 @@ export class BattleRuntime {
       this.frontlineWarned = false;
       const target = this.player.position.clone();
       target.y = 8;
-      this.battleScene.spawnArtilleryStrike(target);
-      this.audio.playExplosion();
-      this.player.takeDamage(100);
+      this.battleScene.launchArtilleryStrike(target, () => {
+        if (this.disposed || this.ended) return;
+        this.audio.playExplosion();
+        this.player.takeDamage(100);
+      });
     }
   }
 
@@ -517,7 +524,7 @@ export class BattleRuntime {
     if (this.ended) return;
     this.artilleryTimer -= dt;
     if (this.artilleryTimer > 0) return;
-    this.artilleryTimer = 10 + Math.random() * 8;
+    this.artilleryTimer = nextArtilleryInterval(Math.random());
 
     const redBots = this.bots.getBots().filter((bot) => bot.alive && bot.faction === 'red');
     const target =
@@ -527,9 +534,12 @@ export class BattleRuntime {
     target.x += (Math.random() - 0.5) * 4;
     target.z += (Math.random() - 0.5) * 4;
     target.y = 8;
-    this.battleScene.spawnArtilleryStrike(target);
-    this.audio.playExplosion();
+    this.battleScene.launchArtilleryStrike(target, () => this.resolveArtilleryImpact(target));
+  }
 
+  private resolveArtilleryImpact(target: THREE.Vector3): void {
+    if (this.disposed || this.ended) return;
+    this.audio.playExplosion();
     for (const bot of this.bots.getBots()) {
       if (!bot.alive) continue;
       const distance = bot.group.position.distanceTo(target);

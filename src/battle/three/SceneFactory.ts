@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  ARTILLERY_SHELL_FLIGHT_SECONDS,
+  artilleryShellHeight,
+} from '../core/artillery';
 import type { Collider } from '../core/collision';
 import { colliderFromCenter } from '../core/collision';
 
@@ -28,7 +32,8 @@ export interface BattleScene {
   setMachineGunFiring(firing: boolean): void;
   destroyMachineGun(): void;
   isMachineGunDestroyed(): boolean;
-  spawnArtilleryStrike(position: THREE.Vector3): void;
+  launchArtilleryStrike(position: THREE.Vector3, onImpact: () => void): void;
+  getActiveArtilleryShellCount(): number;
   startEnemyConvoy(): void;
   isConvoyActive(): boolean;
   dispose(): void;
@@ -981,6 +986,17 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     life: number;
     maxLife: number;
   }> = [];
+  const artilleryShellGeometry = track(new THREE.SphereGeometry(0.18, 6, 5));
+  const artilleryShellMaterial = track(
+    new THREE.MeshBasicMaterial({ color: 0x272321 }),
+  );
+  const artilleryShells: Array<{
+    shell: THREE.Mesh;
+    trail: THREE.Sprite;
+    target: THREE.Vector3;
+    elapsed: number;
+    onImpact: () => void;
+  }> = [];
 
   const spawnArtilleryStrike = (position: THREE.Vector3): void => {
     const fireMaterial = track(
@@ -1020,6 +1036,33 @@ export function createBattleScene(host: HTMLElement): BattleScene {
 
     artilleryBursts.push({ fire, smoke, light, life: 1.2, maxLife: 1.2 });
   };
+
+  const launchArtilleryStrike = (position: THREE.Vector3, onImpact: () => void): void => {
+    const target = position.clone();
+    const shell = new THREE.Mesh(artilleryShellGeometry, artilleryShellMaterial);
+    shell.position.copy(target);
+    shell.position.y = artilleryShellHeight(target.y, 0);
+    scene.add(shell);
+
+    const trailMaterial = track(
+      new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: 0xff9a45,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    const trail = new THREE.Sprite(trailMaterial);
+    trail.position.copy(shell.position);
+    trail.position.y += 0.7;
+    trail.scale.set(0.7, 2.4, 1);
+    scene.add(trail);
+    artilleryShells.push({ shell, trail, target, elapsed: 0, onImpact });
+  };
+
+  const getActiveArtilleryShellCount = (): number => artilleryShells.length;
 
   let elapsed = 0;
   const rainAttribute = rainGeometry.getAttribute('position') as THREE.BufferAttribute;
@@ -1080,6 +1123,20 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       (burst.smoke.material as THREE.SpriteMaterial).opacity = 0.6 * t;
       burst.light.intensity = 5 * t;
       burst.fire.scale.setScalar(4.5 + (1 - t) * 3);
+    }
+
+    for (let i = artilleryShells.length - 1; i >= 0; i -= 1) {
+      const item = artilleryShells[i];
+      item.elapsed += dt;
+      item.shell.position.y = artilleryShellHeight(item.target.y, item.elapsed);
+      item.trail.position.copy(item.shell.position);
+      item.trail.position.y += 0.7;
+      if (item.elapsed < ARTILLERY_SHELL_FLIGHT_SECONDS) continue;
+
+      scene.remove(item.shell, item.trail);
+      spawnArtilleryStrike(item.target);
+      item.onImpact();
+      artilleryShells.splice(i, 1);
     }
 
     if (machineGunFiring && !machineGunDestroyed) {
@@ -1157,7 +1214,8 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     setMachineGunFiring,
     destroyMachineGun,
     isMachineGunDestroyed,
-    spawnArtilleryStrike,
+    launchArtilleryStrike,
+    getActiveArtilleryShellCount,
     startEnemyConvoy,
     isConvoyActive,
     dispose,

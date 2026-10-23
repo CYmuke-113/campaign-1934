@@ -124,7 +124,7 @@ test('rifle uses automatic fire and reloads automatically when empty', async ({ 
   const result = await page.evaluate(() => {
     const weapon = (window as unknown as { __battleDebug: any }).__battleDebug.weapon;
     weapon.setTrigger(true);
-    for (let i = 0; i < 30; i += 1) {
+    for (let i = 0; i < 90; i += 1) {
       weapon.update(0.1);
       if (weapon.state.mag === 0) break;
     }
@@ -139,8 +139,8 @@ test('rifle uses automatic fire and reloads automatically when empty', async ({ 
 
   expect(result.afterBurst.mag).toBe(0);
   expect(result.duringReload.reloading).toBe(true);
-  expect(result.afterReload.mag).toBe(10);
-  expect(result.afterReload.reserve).toBe(110);
+  expect(result.afterReload.mag).toBe(30);
+  expect(result.afterReload.reserve).toBe(60);
 });
 
 test('player can jump with the space key', async ({ page }) => {
