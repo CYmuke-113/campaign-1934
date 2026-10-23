@@ -99,6 +99,20 @@ describe('Bot falling', () => {
     assets.dispose();
   });
 
+  it('stations six defenders across the bunker roof', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.spawn('kmt', 12, false);
+    manager.setBattleZone('bridge');
+
+    const roofBots = manager.getBots().filter(
+      (bot) => bot.alive && bot.faction === 'kmt' && bot.baseY > 10,
+    );
+    expect(roofBots).toHaveLength(6);
+    expect(new Set(roofBots.map((bot) => Math.round(bot.group.position.x))).size).toBe(6);
+    manager.dispose();
+  });
+
   it('cuts down the leading Red bots to show a repulse', () => {
     const scene = new THREE.Scene();
     const onBotDowned = vi.fn();

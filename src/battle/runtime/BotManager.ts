@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  BUNKER_ROOF_DEFENDER_COUNT,
+  BUNKER_ROOF_DEFENDER_POINTS,
+} from '../core/bunker';
 import { SHOT_DAMAGE } from '../core/constants';
 import { isBlockedAt, type Collider } from '../core/collision';
 import {
@@ -386,7 +390,9 @@ export class BotManager {
     for (const bot of this.bots) {
       if (!bot.alive) continue;
       bot.zone = zone;
-      bot.group.position.copy(this.makeSpawnPosition(bot.faction));
+      const position = this.makeSpawnPosition(bot.faction);
+      bot.group.position.copy(position);
+      bot.baseY = position.y;
       bot.group.rotation.set(0, bot.faction === 'red' ? Math.PI : 0, 0);
       bot.fireTimer = 0.8 + Math.random() * 1.4;
       bot.burstRemaining = 0;
@@ -672,12 +678,16 @@ export class BotManager {
       const lane = (Math.random() - 0.5) * 1.7;
       return new THREE.Vector3(lane, 8, 27.5 + Math.random() * 2.0);
     }
-    if (Math.random() < 0.35) {
-      return new THREE.Vector3(
-        (Math.random() - 0.5) * 14,
-        12.25,
-        -32.5 - Math.random() * 3,
+    const roofBots = this.bots.filter(
+      (bot) => bot.alive && bot.faction === 'kmt' && bot.zone === 'bridge' && bot.baseY > 10,
+    );
+    if (roofBots.length < BUNKER_ROOF_DEFENDER_COUNT) {
+      const point = BUNKER_ROOF_DEFENDER_POINTS.find((candidate) =>
+        roofBots.every((bot) => bot.group.position.distanceTo(
+          new THREE.Vector3(candidate.x, candidate.y, candidate.z),
+        ) > 1.5),
       );
+      if (point) return new THREE.Vector3(point.x, point.y, point.z);
     }
     return new THREE.Vector3((Math.random() - 0.5) * 8, 8, -33 - Math.random() * 4);
   }
