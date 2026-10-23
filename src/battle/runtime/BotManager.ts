@@ -626,10 +626,12 @@ export class BotManager {
     return Boolean(target && target.alive);
   }
 
-  private formationPosition(_faction: Faction, index: number): THREE.Vector3 {
-    const rearZ = this.zone === 'jungle' ? 74 : this.zone === 'bridge' ? 28.8 : -40;
+  private formationPosition(faction: Faction, index: number): THREE.Vector3 {
+    const rearZ = faction === 'red'
+      ? this.zone === 'jungle' ? 82 : this.zone === 'bridge' ? 28.8 : -40
+      : this.zone === 'jungle' ? 28 : this.zone === 'bridge' ? -39.5 : -106;
     const columns =
-      this.zone === 'bridge' ? [-1.2, -0.4, 0.4, 1.2] : [-1.8, -0.6, 0.6, 1.8];
+      this.zone === 'bridge' ? [-1.2, -0.4, 0.4, 1.2] : [-4.5, -1.5, 1.5, 4.5];
     const row = Math.floor(index / 4);
     const column = index % 4;
     return new THREE.Vector3(columns[column], 8, rearZ - row * 1.1);

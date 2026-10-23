@@ -133,6 +133,19 @@ describe('Bot falling', () => {
     manager.dispose();
   });
 
+  it('spawns two KMT teams together at the rear edge of the active zone', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.setBattleZone('street');
+    const spawned = manager.spawnSquad('kmt', 8);
+
+    expect(spawned).toBe(8);
+    const bots = manager.getBots();
+    expect(new Set(bots.map((bot) => Math.round(bot.group.position.z * 10) / 10)).size).toBe(2);
+    expect(bots.every((bot) => bot.group.position.z < -104)).toBe(true);
+    manager.dispose();
+  });
+
   it('repositions living bots when the battle zone changes', () => {
     const scene = new THREE.Scene();
     const manager = new BotManager({ scene, onBotDowned: vi.fn() });

@@ -3,6 +3,9 @@ import {
   FINAL_RETREAT_SECONDS,
   KEY_ASSAULT_COUNT,
   KMT_REINFORCEMENT_INTERVAL_SECONDS,
+  KMT_REINFORCEMENT_TEAMS,
+  KMT_REINFORCEMENT_TRIGGER,
+  KMT_TEAM_SIZE,
   MAX_KMT_BOTS,
   MAX_RED_BOTS,
   MAX_TOTAL_BOTS,
@@ -19,7 +22,6 @@ import type {
 interface PhaseRuntime {
   redReinforcementsLeft: number;
   kmtReinforcementsLeft: number;
-  kmtEmergencyLeft: number;
   reinforcementTimer: number;
   kmtReinforcementTimer: number;
   emergencyCooldown: number;
@@ -54,7 +56,6 @@ export class BattleDirector {
     this.runtime = {
       redReinforcementsLeft: 0,
       kmtReinforcementsLeft: 0,
-      kmtEmergencyLeft: 0,
       reinforcementTimer: 0,
       kmtReinforcementTimer: 0,
       emergencyCooldown: 0,
@@ -188,7 +189,6 @@ export class BattleDirector {
     const phase = this.phases[index];
     this.runtime.redReinforcementsLeft = phase.red.reinforcements;
     this.runtime.kmtReinforcementsLeft = phase.kmt.reinforcements;
-    this.runtime.kmtEmergencyLeft = index === this.phases.length - 1 ? 0 : 2;
     this.runtime.reinforcementTimer = 0;
     this.runtime.kmtReinforcementTimer = 0;
     this.runtime.emergencyCooldown = 0;
@@ -229,23 +229,15 @@ export class BattleDirector {
 
     if (this.runtime.kmtReinforcementsLeft > 0) {
       this.runtime.kmtReinforcementTimer += dt;
-      if (this.runtime.kmtReinforcementTimer >= KMT_REINFORCEMENT_INTERVAL_SECONDS) {
+      if (
+        this.runtime.kmtReinforcementTimer >= KMT_REINFORCEMENT_INTERVAL_SECONDS &&
+        this.kmtAlive <= KMT_REINFORCEMENT_TRIGGER
+      ) {
         this.runtime.kmtReinforcementTimer = 0;
-        const spawned = this.spawnTo('kmt', 1);
+        const spawned = this.spawnKmtTeams();
         if (spawned > 0) {
-          this.runtime.kmtReinforcementsLeft -= spawned;
+          this.runtime.kmtReinforcementsLeft = 0;
         }
-      }
-    }
-
-    if (
-      this.runtime.kmtEmergencyLeft > 0 &&
-      this.kmtAlive < 4 &&
-      this.phaseController.currentIndex < this.phases.length - 1
-    ) {
-      const spawned = this.spawnTo('kmt', 1);
-      if (spawned > 0) {
-        this.runtime.kmtEmergencyLeft -= spawned;
       }
     }
 
@@ -287,10 +279,12 @@ export class BattleDirector {
     }
 
     if (!this.runtime.retreatTriggered) {
-      const kmtFloor = Math.max(8, phase.kmt.initial - 1);
-      if (this.runtime.sustainKmtTimer <= 0 && this.kmtAlive < kmtFloor) {
-        const spawned = this.spawnTo('kmt', 1);
-        this.runtime.sustainKmtTimer = spawned > 0 ? 3.5 : 5;
+      if (
+        this.runtime.sustainKmtTimer <= 0 &&
+        this.kmtAlive <= KMT_REINFORCEMENT_TRIGGER
+      ) {
+        const spawned = this.spawnKmtTeams();
+        this.runtime.sustainKmtTimer = spawned > 0 ? 8 : 3;
       }
     }
   }
@@ -325,6 +319,24 @@ export class BattleDirector {
       );
     }
     return this.kmtAlive < MAX_KMT_BOTS;
+  }
+
+  private spawnKmtTeams(): number {
+    const count = KMT_TEAM_SIZE * KMT_REINFORCEMENT_TEAMS;
+    const capacity = Math.min(
+      MAX_KMT_BOTS - this.kmtAlive,
+      MAX_TOTAL_BOTS - this.redAlive - this.kmtAlive,
+      Math.max(0, this.redAlive - this.kmtAlive - 2),
+    );
+    if (capacity < count) return 0;
+
+    const spawned = this.callbacks.spawnSquad
+      ? this.callbacks.spawnSquad('kmt', count)
+      : this.spawnTo('kmt', count);
+    if (this.callbacks.spawnSquad) {
+      this.kmtAlive += spawned;
+    }
+    return spawned;
   }
 
   private spawnTo(faction: Faction, count: number): number {
