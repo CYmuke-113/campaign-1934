@@ -11,6 +11,7 @@ import {
   nextArtilleryInterval,
 } from '../core/artillery';
 import { frontlineEscalation, isOutOfFrontline } from '../core/frontline';
+import { MACHINE_GUN_DAMAGE, advanceAutomaticFire } from '../core/machineGun';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
@@ -57,6 +58,8 @@ export class BattleRuntime {
   private fpsAccumulator = 0;
   private fpsFrames = 0;
   private machineGunTimer: number | null = null;
+  private machineGunFireTimer = 0;
+  private machineGunShotIndex = 0;
   private currentZone: BattleZone | null = null;
   private artilleryTimer = nextArtilleryInterval(Math.random());
   private frontlineTimer = 0;
@@ -262,6 +265,7 @@ export class BattleRuntime {
         this.world.playerAlive = this.player.isAlive;
         this.world.playerDowned = this.player.isDowned;
         this.bots.update(dt, this.world);
+        this.updateMachineGuns(dt);
         this.weapon.update(dt);
         this.battleScene.update(dt);
         this.tracers.update(dt);
@@ -554,6 +558,65 @@ export class BattleRuntime {
     const damage = artilleryDamageAt(playerDistance);
     if (damage > 0) {
       this.player.takeDamage(damage);
+    }
+  }
+
+  private updateMachineGuns(dt: number): void {
+    if (
+      this.currentZone !== 'bridge' ||
+      this.battleScene.isMachineGunDestroyed() ||
+      this.director.phaseIndex > 2
+    ) {
+      this.machineGunFireTimer = 0;
+      return;
+    }
+
+    const step = advanceAutomaticFire(this.machineGunFireTimer, dt);
+    this.machineGunFireTimer = step.timer;
+    const muzzles = this.battleScene.getMachineGunMuzzlePositions();
+    if (muzzles.length === 0) return;
+
+    for (let shot = 0; shot < step.shots; shot += 1) {
+      const origin = muzzles[this.machineGunShotIndex % muzzles.length];
+      this.machineGunShotIndex += 1;
+      const redTargets = this.bots.getBots().filter(
+        (bot) =>
+          bot.alive &&
+          bot.faction === 'red' &&
+          bot.group.position.z > -30 &&
+          bot.group.position.z < 31,
+      );
+      const playerOnBridge =
+        this.player.isAlive &&
+        this.player.position.z > -30 &&
+        this.player.position.z < 31;
+      const targetsPlayer = playerOnBridge && (redTargets.length === 0 || Math.random() < 0.24);
+      const targetBot = targetsPlayer || redTargets.length === 0
+        ? null
+        : redTargets[Math.floor(Math.random() * redTargets.length)];
+      if (!targetsPlayer && !targetBot) continue;
+
+      const target = targetsPlayer
+        ? this.player.position.clone().add(new THREE.Vector3(0, -0.2, 0))
+        : targetBot!.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      if (!this.world.hasLineOfSight(origin, target)) continue;
+      const hit = Math.random() < 0.22;
+      const tracerEnd = target.clone();
+      if (!hit) {
+        tracerEnd.x += (Math.random() - 0.5) * 3.5;
+        tracerEnd.y += (Math.random() - 0.5) * 2.2;
+      }
+      this.tracers.spawn(origin, tracerEnd, 0.09);
+      this.tracers.spawnMuzzleFlash(origin);
+      if (this.machineGunShotIndex % 4 === 0) {
+        this.audio.playDistantShot(THREE.MathUtils.clamp(origin.x / 8, -1, 1));
+      }
+      if (!hit) continue;
+      if (targetsPlayer) {
+        this.player.takeDamage(MACHINE_GUN_DAMAGE);
+      } else if (targetBot) {
+        this.bots.hitBot(targetBot.id, MACHINE_GUN_DAMAGE, 'bot');
+      }
     }
   }
 

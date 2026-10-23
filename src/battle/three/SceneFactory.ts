@@ -3,6 +3,7 @@ import {
   ARTILLERY_SHELL_FLIGHT_SECONDS,
   artilleryShellHeight,
 } from '../core/artillery';
+import { MACHINE_GUN_COUNT } from '../core/machineGun';
 import type { Collider } from '../core/collision';
 import { colliderFromCenter } from '../core/collision';
 
@@ -32,6 +33,7 @@ export interface BattleScene {
   setMachineGunFiring(firing: boolean): void;
   destroyMachineGun(): void;
   isMachineGunDestroyed(): boolean;
+  getMachineGunMuzzlePositions(): THREE.Vector3[];
   launchArtilleryStrike(position: THREE.Vector3, onImpact: () => void): void;
   getActiveArtilleryShellCount(): number;
   startEnemyConvoy(): void;
@@ -355,12 +357,14 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     y: number,
     z: number,
     material: THREE.MeshStandardMaterial,
+    rotationY = 0,
   ): void => {
     const mesh = new THREE.Mesh(
       track(new THREE.BoxGeometry(width, height, depth)),
       material,
     );
     mesh.position.set(x, y, z);
+    mesh.rotation.y = rotationY;
     scene.add(mesh);
     bulletBlockers.push(mesh);
   };
@@ -373,6 +377,13 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     colliderFromCenter(-5.8, BUNKER_WALL_Z, 8.4, 0.8, 1.2),
     colliderFromCenter(5.8, BUNKER_WALL_Z, 8.4, 0.8, 1.2),
   );
+  // Angled wings form a shallow arc around the far bridgehead.
+  for (const x of [-11, -8.5, 8.5, 11]) {
+    const z = BUNKER_WALL_Z + Math.abs(x) * 0.22;
+    const rotationY = x < 0 ? -0.32 : 0.32;
+    addBunkerBox(3.4, 2.8, 0.7, x, DECK_Y + 1.4, z, bunkerMaterial, rotationY);
+    colliders.push(colliderFromCenter(x, z, 3.8, 1.8, 2.8));
+  }
   for (const x of [-9, -7, -5, -3, 3, 5, 7, 9]) {
     addBunkerBox(0.55, 3.6, 0.55, x, DECK_Y + 1.8, BUNKER_WALL_Z, bunkerMaterial);
   }
@@ -438,70 +449,82 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     scene.add(barrel);
   }
 
-  // Heavy machine gun in the central firing port. It suppresses the bridge
-  // until the scripted grenade in the second charge destroys it.
+  // Three heavy machine guns cover the whole bridgehead until the scripted
+  // grenade strike in the second charge destroys the emplacement.
   const machineGunGroup = new THREE.Group();
   const machineGunMaterial = track(
     new THREE.MeshStandardMaterial({ color: 0x303638, roughness: 0.48, metalness: 0.68 }),
   );
-  const shield = new THREE.Mesh(
-    track(new THREE.BoxGeometry(1.15, 0.78, 0.14)),
-    machineGunMaterial,
-  );
-  shield.position.set(0, 0.12, 0.24);
-  machineGunGroup.add(shield);
-  const machineGunBarrel = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.045, 0.045, 1.45, 6)),
-    machineGunMaterial,
-  );
-  machineGunBarrel.rotation.x = Math.PI / 2;
-  machineGunBarrel.position.set(0, 0.18, 0.9);
-  machineGunGroup.add(machineGunBarrel);
-  const ammoBox = new THREE.Mesh(
-    track(new THREE.BoxGeometry(0.42, 0.32, 0.48)),
-    bunkerDarkMaterial,
-  );
-  ammoBox.position.set(0.52, -0.22, 0.02);
-  machineGunGroup.add(ammoBox);
   const muzzleTexture = track(
     createGlowTexture('rgba(255, 235, 170, 1)', 'rgba(255, 120, 40, 0)'),
   );
-  const machineGunMuzzle = new THREE.Sprite(
-    track(
-      new THREE.SpriteMaterial({
-        map: muzzleTexture,
-        color: 0xffb15c,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    ),
-  );
-  machineGunMuzzle.position.set(0, 0.18, 1.68);
-  machineGunMuzzle.scale.setScalar(0.55);
-  machineGunMuzzle.visible = false;
-  machineGunGroup.add(machineGunMuzzle);
-  machineGunGroup.position.set(0, DECK_Y + 1.3, BUNKER_WALL_Z - 0.35);
+  const machineGunUnits: THREE.Group[] = [];
+  const machineGunMuzzles: THREE.Sprite[] = [];
+  for (let index = 0; index < MACHINE_GUN_COUNT; index += 1) {
+    const x = (index - 1) * 5;
+    const unit = new THREE.Group();
+    const shield = new THREE.Mesh(
+      track(new THREE.BoxGeometry(1.15, 0.78, 0.14)),
+      machineGunMaterial,
+    );
+    shield.position.set(0, 0.12, 0.24);
+    unit.add(shield);
+    const barrel = new THREE.Mesh(
+      track(new THREE.CylinderGeometry(0.045, 0.045, 1.45, 6)),
+      machineGunMaterial,
+    );
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.18, 0.9);
+    unit.add(barrel);
+    const ammoBox = new THREE.Mesh(
+      track(new THREE.BoxGeometry(0.42, 0.32, 0.48)),
+      bunkerDarkMaterial,
+    );
+    ammoBox.position.set(0.52, -0.22, 0.02);
+    unit.add(ammoBox);
+    const muzzle = new THREE.Sprite(
+      track(
+        new THREE.SpriteMaterial({
+          map: muzzleTexture,
+          color: 0xffb15c,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      ),
+    );
+    muzzle.position.set(0, 0.18, 1.68);
+    muzzle.scale.setScalar(0.55);
+    muzzle.visible = false;
+    unit.add(muzzle);
+    unit.position.set(x, DECK_Y + 1.3, BUNKER_WALL_Z - 0.35 + Math.abs(x) * 0.08);
+    machineGunGroup.add(unit);
+    machineGunUnits.push(unit);
+    machineGunMuzzles.push(muzzle);
+  }
   scene.add(machineGunGroup);
 
   const destroyedSmokeTexture = track(
     createGlowTexture('rgba(75, 78, 76, 0.65)', 'rgba(20, 22, 22, 0)'),
   );
-  const destroyedSmoke = new THREE.Sprite(
-    track(
-      new THREE.SpriteMaterial({
-        map: destroyedSmokeTexture,
-        transparent: true,
-        opacity: 0.7,
-        depthWrite: false,
-      }),
-    ),
-  );
-  destroyedSmoke.position.copy(machineGunGroup.position);
-  destroyedSmoke.position.y += 0.4;
-  destroyedSmoke.scale.set(2.8, 2.8, 1);
-  destroyedSmoke.visible = false;
-  scene.add(destroyedSmoke);
+  const destroyedSmokes = machineGunUnits.map((unit) => {
+    const smoke = new THREE.Sprite(
+      track(
+        new THREE.SpriteMaterial({
+          map: destroyedSmokeTexture,
+          transparent: true,
+          opacity: 0.7,
+          depthWrite: false,
+        }),
+      ),
+    );
+    smoke.position.copy(unit.position);
+    smoke.position.y += 0.4;
+    smoke.scale.set(2.8, 2.8, 1);
+    smoke.visible = false;
+    scene.add(smoke);
+    return smoke;
+  });
 
   let machineGunFiring = false;
   let machineGunDestroyed = false;
@@ -1165,32 +1188,41 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     }
 
     if (machineGunFiring && !machineGunDestroyed) {
-      machineGunMuzzle.visible = Math.sin(elapsed * 28) > 0.15;
+      machineGunMuzzles.forEach((muzzle, index) => {
+        muzzle.visible = Math.sin(elapsed * 58 + index * 1.7) > -0.05;
+      });
     } else {
-      machineGunMuzzle.visible = false;
+      machineGunMuzzles.forEach((muzzle) => { muzzle.visible = false; });
     }
-    if (destroyedSmoke.visible) {
-      (destroyedSmoke.material as THREE.SpriteMaterial).opacity =
-        0.45 + Math.sin(elapsed * 3) * 0.12;
-    }
+    destroyedSmokes.forEach((smoke, index) => {
+      if (!smoke.visible) return;
+      (smoke.material as THREE.SpriteMaterial).opacity =
+        0.45 + Math.sin(elapsed * 3 + index) * 0.12;
+    });
   };
 
   const setMachineGunFiring = (firing: boolean): void => {
     machineGunFiring = firing && !machineGunDestroyed;
-    if (!machineGunFiring) machineGunMuzzle.visible = false;
+    if (!machineGunFiring) {
+      machineGunMuzzles.forEach((muzzle) => { muzzle.visible = false; });
+    }
   };
 
   const destroyMachineGun = (): void => {
     if (machineGunDestroyed) return;
     machineGunDestroyed = true;
     machineGunFiring = false;
-    machineGunMuzzle.visible = false;
-    machineGunGroup.rotation.z = 0.45;
-    machineGunGroup.position.y -= 0.18;
-    destroyedSmoke.visible = true;
+    machineGunMuzzles.forEach((muzzle) => { muzzle.visible = false; });
+    machineGunUnits.forEach((unit, index) => {
+      unit.rotation.z = index === 1 ? 0.45 : index === 0 ? -0.32 : 0.32;
+      unit.position.y -= 0.18;
+    });
+    destroyedSmokes.forEach((smoke) => { smoke.visible = true; });
   };
 
   const isMachineGunDestroyed = (): boolean => machineGunDestroyed;
+  const getMachineGunMuzzlePositions = (): THREE.Vector3[] =>
+    machineGunMuzzles.map((muzzle) => muzzle.getWorldPosition(new THREE.Vector3()));
 
   const resize = (nextWidth: number, nextHeight: number): void => {
     const w = Math.max(1, nextWidth);
@@ -1239,6 +1271,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
     setMachineGunFiring,
     destroyMachineGun,
     isMachineGunDestroyed,
+    getMachineGunMuzzlePositions,
     launchArtilleryStrike,
     getActiveArtilleryShellCount,
     startEnemyConvoy,
