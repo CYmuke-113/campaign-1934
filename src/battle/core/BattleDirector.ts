@@ -179,6 +179,23 @@ export class BattleDirector {
     return spawned;
   }
 
+  spawnKmtInterceptionTeam(): number {
+    if (this.result || this.runtime.retreatTriggered) return 0;
+    const count = KMT_TEAM_SIZE;
+    const capacity = Math.min(
+      MAX_KMT_BOTS - this.kmtAlive,
+      MAX_TOTAL_BOTS - this.redAlive - this.kmtAlive,
+      Math.max(0, this.redAlive - this.kmtAlive - 2),
+    );
+    if (capacity < count) return 0;
+
+    const spawned = this.callbacks.spawnSquad
+      ? this.callbacks.spawnSquad('kmt', count)
+      : this.spawnTo('kmt', count);
+    if (this.callbacks.spawnSquad) this.kmtAlive += spawned;
+    return spawned;
+  }
+
   debugSkipPhase(): void {
     if (this.result) return;
     const remaining = Math.max(0, this.phaseController.current.durationSec - this.phaseController.timeInPhase);

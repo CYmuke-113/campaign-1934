@@ -10,7 +10,7 @@ import {
   isInArtilleryBlast,
   nextArtilleryInterval,
 } from '../core/artillery';
-import { isOutOfFrontline } from '../core/frontline';
+import { frontlineEscalation, isOutOfFrontline } from '../core/frontline';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
@@ -60,7 +60,8 @@ export class BattleRuntime {
   private currentZone: BattleZone | null = null;
   private artilleryTimer = nextArtilleryInterval(Math.random());
   private frontlineTimer = 0;
-  private frontlineWarned = false;
+  private frontlineReinforced = false;
+  private frontlineStrikeLaunched = false;
   private battleStarted = false;
   private stagingEndsAt = performance.now() + 3000;
   private pendingNarration: string | null = null;
@@ -477,7 +478,8 @@ export class BattleRuntime {
     if (!this.currentZone || this.ended) return;
     if (this.player.isDowned) {
       this.frontlineTimer = 0;
-      this.frontlineWarned = false;
+      this.frontlineReinforced = false;
+      this.frontlineStrikeLaunched = false;
       return;
     }
 
@@ -497,19 +499,19 @@ export class BattleRuntime {
     );
     if (!outOfLine) {
       this.frontlineTimer = 0;
-      this.frontlineWarned = false;
+      this.frontlineReinforced = false;
+      this.frontlineStrikeLaunched = false;
       return;
     }
 
-    if (!this.frontlineWarned) {
-      this.hud.setSubtitle('你已脱离红军战线，敌军火力即将覆盖！');
-      this.frontlineWarned = true;
-    }
-
     this.frontlineTimer += dt;
-    if (this.frontlineTimer >= 2) {
-      this.frontlineTimer = 0;
-      this.frontlineWarned = false;
+    const escalation = frontlineEscalation(this.frontlineTimer);
+    if (escalation !== 'none' && !this.frontlineReinforced) {
+      this.frontlineReinforced = true;
+      this.director.spawnKmtInterceptionTeam();
+    }
+    if (escalation === 'strike' && !this.frontlineStrikeLaunched) {
+      this.frontlineStrikeLaunched = true;
       const target = this.player.position.clone();
       target.y = 8;
       this.battleScene.launchArtilleryStrike(target, () => {

@@ -228,6 +228,26 @@ describe('BattleDirector', () => {
     expect(director.snapshot.redAlive).toBeGreaterThan(director.snapshot.kmtAlive);
   });
 
+  it('can deploy one complete interception team without breaking the Red advantage', () => {
+    const batches: Array<{ faction: Faction; count: number }> = [];
+    const director = new BattleDirector(makePhases(60), {
+      spawn: () => true,
+      spawnSquad: (faction, count) => {
+        batches.push({ faction, count });
+        return count;
+      },
+      onPhase: () => undefined,
+      onModifiers: () => undefined,
+      onRetreatKmt: () => undefined,
+      onVictory: () => undefined,
+    });
+    for (let i = 0; i < 4; i += 1) director.notifyDowned('kmt');
+
+    expect(director.spawnKmtInterceptionTeam()).toBe(4);
+    expect(batches).toContainEqual({ faction: 'kmt', count: 4 });
+    expect(director.snapshot.redAlive).toBeGreaterThan(director.snapshot.kmtAlive);
+  });
+
   it('backfills a key assault bot after it is downed', () => {
     const harness = createHarness(10);
     const initialKeySpawns = harness.spawned.filter((item) => item.key).length;
