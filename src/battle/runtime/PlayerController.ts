@@ -299,7 +299,7 @@ export class PlayerController {
       return;
     }
 
-    this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -14, 14);
+    this.camera.position.x = THREE.MathUtils.clamp(this.camera.position.x, -28, 28);
   }
 
   private applyRotation(): void {

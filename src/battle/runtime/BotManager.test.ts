@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { Bot, BotManager, type BotWorld } from './BotManager';
 import { createSoldierAssets } from '../three/SoldierView';
+import { colliderFromCenter } from '../core/collision';
 
 function createWorld(): BotWorld {
   return {
@@ -98,6 +99,20 @@ describe('Bot falling', () => {
     assets.dispose();
   });
 
+  it('stations six defenders across the bunker roof', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.spawn('kmt', 12, false);
+    manager.setBattleZone('bridge');
+
+    const roofBots = manager.getBots().filter(
+      (bot) => bot.alive && bot.faction === 'kmt' && bot.baseY > 10,
+    );
+    expect(roofBots).toHaveLength(6);
+    expect(new Set(roofBots.map((bot) => Math.round(bot.group.position.x))).size).toBe(6);
+    manager.dispose();
+  });
+
   it('cuts down the leading Red bots to show a repulse', () => {
     const scene = new THREE.Scene();
     const onBotDowned = vi.fn();
@@ -132,6 +147,19 @@ describe('Bot falling', () => {
     manager.dispose();
   });
 
+  it('spawns two KMT teams together at the rear edge of the active zone', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.setBattleZone('street');
+    const spawned = manager.spawnSquad('kmt', 8);
+
+    expect(spawned).toBe(8);
+    const bots = manager.getBots();
+    expect(new Set(bots.map((bot) => Math.round(bot.group.position.z * 10) / 10)).size).toBe(2);
+    expect(bots.every((bot) => bot.group.position.z < -104)).toBe(true);
+    manager.dispose();
+  });
+
   it('repositions living bots when the battle zone changes', () => {
     const scene = new THREE.Scene();
     const manager = new BotManager({ scene, onBotDowned: vi.fn() });
@@ -159,5 +187,38 @@ describe('Bot falling', () => {
 
     bot.dispose();
     assets.dispose();
+  });
+
+  it('spreads jungle soldiers across separate cover positions', () => {
+    const scene = new THREE.Scene();
+    const colliders = Array.from({ length: 12 }, (_, index) =>
+      colliderFromCenter(-24 + (index % 6) * 9, 38 + Math.floor(index / 6) * 16, 2, 2, 3),
+    );
+    const manager = new BotManager({ scene, colliders, onBotDowned: vi.fn() });
+    manager.spawn('red', 10, false);
+
+    const targets = manager.getBots().map((bot) => ({ x: bot.laneX, z: bot.targetZ }));
+    expect(Math.max(...targets.map((point) => point.x)) - Math.min(...targets.map((point) => point.x)))
+      .toBeGreaterThan(18);
+    for (let i = 0; i < targets.length; i += 1) {
+      for (let j = i + 1; j < targets.length; j += 1) {
+        expect(Math.hypot(targets[i].x - targets[j].x, targets[i].z - targets[j].z))
+          .toBeGreaterThanOrEqual(3.6);
+      }
+    }
+    manager.dispose();
+  });
+
+  it('holds Red troops around the player before releasing them into the jungle', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.spawn('red', 10, false);
+    manager.stageRedFormation(98);
+
+    expect(manager.getBots().every((bot) => bot.state === 'hold')).toBe(true);
+    expect(manager.getBots().every((bot) => bot.group.position.z >= 98)).toBe(true);
+    manager.releaseStagingFormation();
+    expect(manager.getBots().some((bot) => bot.targetZ < 70)).toBe(true);
+    manager.dispose();
   });
 });

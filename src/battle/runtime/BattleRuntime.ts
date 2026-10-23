@@ -5,8 +5,14 @@ import { NARRATION } from '../../content/narration';
 import { PHASES } from '../../content/phases';
 import { BattleDirector } from '../core/BattleDirector';
 import { BattleStats } from '../core/BattleStats';
-import { artilleryDamageAt, isInArtilleryBlast } from '../core/artillery';
-import { isOutOfFrontline } from '../core/frontline';
+import {
+  artilleryDamageAt,
+  isInArtilleryBlast,
+  nextArtilleryInterval,
+} from '../core/artillery';
+import { STAGING_DURATION_SECONDS } from '../core/cinematics';
+import { frontlineEscalation, isOutOfFrontline } from '../core/frontline';
+import { MACHINE_GUN_DAMAGE, advanceAutomaticFire } from '../core/machineGun';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
 import type { BattleSnapshot, BattleZone, Faction } from '../core/types';
 import { createBattleScene, type BattleScene } from '../three/SceneFactory';
@@ -53,12 +59,15 @@ export class BattleRuntime {
   private fpsAccumulator = 0;
   private fpsFrames = 0;
   private machineGunTimer: number | null = null;
+  private machineGunFireTimer = 0;
+  private machineGunShotIndex = 0;
   private currentZone: BattleZone | null = null;
-  private artilleryTimer = 10 + Math.random() * 8;
+  private artilleryTimer = nextArtilleryInterval(Math.random());
   private frontlineTimer = 0;
-  private frontlineWarned = false;
+  private frontlineReinforced = false;
+  private frontlineStrikeLaunched = false;
   private battleStarted = false;
-  private stagingEndsAt = performance.now() + 3000;
+  private stagingEndsAt = performance.now() + STAGING_DURATION_SECONDS * 1000;
   private pendingNarration: string | null = null;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
@@ -185,8 +194,7 @@ export class BattleRuntime {
 
     this.player.setEnabled(false);
     this.weapon.setEnabled(false);
-    this.hud.showStaging(3);
-    this.audio.playHorn();
+    this.hud.showStaging(STAGING_DURATION_SECONDS);
     this.resize();
     window.addEventListener('resize', this.handleResize);
     this.host.addEventListener('pointerdown', this.handleFirstPointer, { once: true });
@@ -204,6 +212,7 @@ export class BattleRuntime {
         machineGunDestroyed: () => this.battleScene.isMachineGunDestroyed(),
         battleStarted: () => this.battleStarted,
         convoyActive: () => this.battleScene.isConvoyActive(),
+        activeArtilleryShells: () => this.battleScene.getActiveArtilleryShellCount(),
       };
     }
   }
@@ -256,6 +265,7 @@ export class BattleRuntime {
         this.world.playerAlive = this.player.isAlive;
         this.world.playerDowned = this.player.isDowned;
         this.bots.update(dt, this.world);
+        this.updateMachineGuns(dt);
         this.weapon.update(dt);
         this.battleScene.update(dt);
         this.tracers.update(dt);
@@ -263,6 +273,10 @@ export class BattleRuntime {
         this.updateFrontline(dt);
         this.updateFps(dt);
       }
+    } else if (!this.paused && this.ended) {
+      // Continue environmental animation for the five-second closing shot.
+      this.battleScene.update(dt);
+      this.tracers.update(dt);
     }
 
     this.battleScene.renderer.render(this.battleScene.scene, this.battleScene.camera);
@@ -305,10 +319,14 @@ export class BattleRuntime {
       this.bots.setBattleZone(phaseConfig.zone);
       const spawnZ =
         phaseConfig.zone === 'jungle' ? 73 : phaseConfig.zone === 'bridge' ? 26 : -38;
-      this.player.setSpawnPoint(0, spawnZ);
-      this.player.teleportTo(0, spawnZ);
+      const actualSpawnZ = !this.battleStarted && index === 0 ? 96 : spawnZ;
+      this.player.setSpawnPoint(0, actualSpawnZ);
+      this.player.teleportTo(0, actualSpawnZ);
     }
     this.bots.setPhase(index);
+    if (!this.battleStarted && index === 0) {
+      this.bots.stageRedFormation(98);
+    }
     if (index === 2) {
       // The first assault has failed: the leading Red bots are cut down,
       // visibly pulling the line back before the second charge.
@@ -457,6 +475,7 @@ export class BattleRuntime {
     this.weapon.setEnabled(true);
     this.audio.unlock();
     this.audio.playHorn();
+    this.bots.releaseStagingFormation();
     const text = this.pendingNarration;
     this.pendingNarration = null;
     if (text) {
@@ -472,7 +491,8 @@ export class BattleRuntime {
     if (!this.currentZone || this.ended) return;
     if (this.player.isDowned) {
       this.frontlineTimer = 0;
-      this.frontlineWarned = false;
+      this.frontlineReinforced = false;
+      this.frontlineStrikeLaunched = false;
       return;
     }
 
@@ -492,24 +512,26 @@ export class BattleRuntime {
     );
     if (!outOfLine) {
       this.frontlineTimer = 0;
-      this.frontlineWarned = false;
+      this.frontlineReinforced = false;
+      this.frontlineStrikeLaunched = false;
       return;
     }
 
-    if (!this.frontlineWarned) {
-      this.hud.setSubtitle('你已脱离红军战线，敌军火力即将覆盖！');
-      this.frontlineWarned = true;
-    }
-
     this.frontlineTimer += dt;
-    if (this.frontlineTimer >= 2) {
-      this.frontlineTimer = 0;
-      this.frontlineWarned = false;
+    const escalation = frontlineEscalation(this.frontlineTimer);
+    if (escalation !== 'none' && !this.frontlineReinforced) {
+      this.frontlineReinforced = true;
+      this.director.spawnKmtInterceptionTeam();
+    }
+    if (escalation === 'strike' && !this.frontlineStrikeLaunched) {
+      this.frontlineStrikeLaunched = true;
       const target = this.player.position.clone();
       target.y = 8;
-      this.battleScene.spawnArtilleryStrike(target);
-      this.audio.playExplosion();
-      this.player.takeDamage(100);
+      this.battleScene.launchArtilleryStrike(target, () => {
+        if (this.disposed || this.ended) return;
+        this.audio.playExplosion();
+        this.player.takeDamage(100);
+      });
     }
   }
 
@@ -517,7 +539,7 @@ export class BattleRuntime {
     if (this.ended) return;
     this.artilleryTimer -= dt;
     if (this.artilleryTimer > 0) return;
-    this.artilleryTimer = 10 + Math.random() * 8;
+    this.artilleryTimer = nextArtilleryInterval(Math.random());
 
     const redBots = this.bots.getBots().filter((bot) => bot.alive && bot.faction === 'red');
     const target =
@@ -527,9 +549,12 @@ export class BattleRuntime {
     target.x += (Math.random() - 0.5) * 4;
     target.z += (Math.random() - 0.5) * 4;
     target.y = 8;
-    this.battleScene.spawnArtilleryStrike(target);
-    this.audio.playExplosion();
+    this.battleScene.launchArtilleryStrike(target, () => this.resolveArtilleryImpact(target));
+  }
 
+  private resolveArtilleryImpact(target: THREE.Vector3): void {
+    if (this.disposed || this.ended) return;
+    this.audio.playExplosion();
     for (const bot of this.bots.getBots()) {
       if (!bot.alive) continue;
       const distance = bot.group.position.distanceTo(target);
@@ -542,6 +567,65 @@ export class BattleRuntime {
     const damage = artilleryDamageAt(playerDistance);
     if (damage > 0) {
       this.player.takeDamage(damage);
+    }
+  }
+
+  private updateMachineGuns(dt: number): void {
+    if (
+      this.currentZone !== 'bridge' ||
+      this.battleScene.isMachineGunDestroyed() ||
+      this.director.phaseIndex > 2
+    ) {
+      this.machineGunFireTimer = 0;
+      return;
+    }
+
+    const step = advanceAutomaticFire(this.machineGunFireTimer, dt);
+    this.machineGunFireTimer = step.timer;
+    const muzzles = this.battleScene.getMachineGunMuzzlePositions();
+    if (muzzles.length === 0) return;
+
+    for (let shot = 0; shot < step.shots; shot += 1) {
+      const origin = muzzles[this.machineGunShotIndex % muzzles.length];
+      this.machineGunShotIndex += 1;
+      const redTargets = this.bots.getBots().filter(
+        (bot) =>
+          bot.alive &&
+          bot.faction === 'red' &&
+          bot.group.position.z > -30 &&
+          bot.group.position.z < 31,
+      );
+      const playerOnBridge =
+        this.player.isAlive &&
+        this.player.position.z > -30 &&
+        this.player.position.z < 31;
+      const targetsPlayer = playerOnBridge && (redTargets.length === 0 || Math.random() < 0.24);
+      const targetBot = targetsPlayer || redTargets.length === 0
+        ? null
+        : redTargets[Math.floor(Math.random() * redTargets.length)];
+      if (!targetsPlayer && !targetBot) continue;
+
+      const target = targetsPlayer
+        ? this.player.position.clone().add(new THREE.Vector3(0, -0.2, 0))
+        : targetBot!.group.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+      if (!this.world.hasLineOfSight(origin, target)) continue;
+      const hit = Math.random() < 0.22;
+      const tracerEnd = target.clone();
+      if (!hit) {
+        tracerEnd.x += (Math.random() - 0.5) * 3.5;
+        tracerEnd.y += (Math.random() - 0.5) * 2.2;
+      }
+      this.tracers.spawn(origin, tracerEnd, 0.09);
+      this.tracers.spawnMuzzleFlash(origin);
+      if (this.machineGunShotIndex % 4 === 0) {
+        this.audio.playDistantShot(THREE.MathUtils.clamp(origin.x / 8, -1, 1));
+      }
+      if (!hit) continue;
+      if (targetsPlayer) {
+        this.player.takeDamage(MACHINE_GUN_DAMAGE);
+      } else if (targetBot) {
+        this.bots.hitBot(targetBot.id, MACHINE_GUN_DAMAGE, 'bot');
+      }
     }
   }
 
