@@ -3,6 +3,7 @@ import {
   ARTILLERY_SHELL_FLIGHT_SECONDS,
   artilleryShellHeight,
 } from '../core/artillery';
+import { convoyPositionZ, hasConvoyExited } from '../core/cinematics';
 import { MACHINE_GUN_COUNT } from '../core/machineGun';
 import type { Collider } from '../core/collision';
 import { colliderFromCenter } from '../core/collision';
@@ -724,6 +725,14 @@ export function createBattleScene(host: HTMLElement): BattleScene {
   jungleGround.position.set(0, 7.85, 52);
   scene.add(jungleGround);
 
+  const stagingGround = new THREE.Mesh(
+    track(new THREE.PlaneGeometry(42, 22)),
+    track(new THREE.MeshStandardMaterial({ color: 0x4a4336, roughness: 1 })),
+  );
+  stagingGround.rotation.x = -Math.PI / 2;
+  stagingGround.position.set(0, 7.86, 98);
+  scene.add(stagingGround);
+
   // Several narrow, offset trails instead of one obvious central avenue.
   const pathMaterial = track(
     new THREE.MeshStandardMaterial({ color: 0x4a4336, roughness: 1 }),
@@ -953,7 +962,9 @@ export function createBattleScene(host: HTMLElement): BattleScene {
         soldier.position.set(-0.55 + s * 0.55, 1.85, -1.3 + (s % 2) * 0.7);
         group.add(soldier);
       }
-      group.position.set(i === 0 ? -2.4 : 2.4, 8, -52 - i * 9);
+      group.position.set(i === 0 ? -2.4 : 2.4, 8, -82 - i * 9);
+      group.userData.startZ = group.position.z;
+      group.userData.convoyElapsed = 0;
       scene.add(group);
       convoyGroups.push(group);
     }
@@ -1151,8 +1162,12 @@ export function createBattleScene(host: HTMLElement): BattleScene {
 
     for (let i = convoyGroups.length - 1; i >= 0; i -= 1) {
       const group = convoyGroups[i];
-      group.position.z -= dt * 7;
-      if (group.position.z < -96) {
+      group.userData.convoyElapsed = Number(group.userData.convoyElapsed ?? 0) + dt;
+      group.position.z = convoyPositionZ(
+        Number(group.userData.startZ ?? group.position.z),
+        Number(group.userData.convoyElapsed),
+      );
+      if (hasConvoyExited(group.position.z)) {
         scene.remove(group);
         convoyGroups.splice(i, 1);
       }
@@ -1258,7 +1273,7 @@ export function createBattleScene(host: HTMLElement): BattleScene {
       maxZ: BRIDGE_HALF_LENGTH,
       deckY: DECK_Y,
       worldMinZ: -112,
-      worldMaxZ: 88,
+      worldMaxZ: 108,
     },
     redSpawn: new THREE.Vector3(0, DECK_Y, 73),
     kmtSpawn: new THREE.Vector3(0, DECK_Y, BUNKER_CENTER_Z),

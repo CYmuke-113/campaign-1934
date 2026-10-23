@@ -208,4 +208,17 @@ describe('Bot falling', () => {
     }
     manager.dispose();
   });
+
+  it('holds Red troops around the player before releasing them into the jungle', () => {
+    const scene = new THREE.Scene();
+    const manager = new BotManager({ scene, onBotDowned: vi.fn() });
+    manager.spawn('red', 10, false);
+    manager.stageRedFormation(98);
+
+    expect(manager.getBots().every((bot) => bot.state === 'hold')).toBe(true);
+    expect(manager.getBots().every((bot) => bot.group.position.z >= 98)).toBe(true);
+    manager.releaseStagingFormation();
+    expect(manager.getBots().some((bot) => bot.targetZ < 70)).toBe(true);
+    manager.dispose();
+  });
 });

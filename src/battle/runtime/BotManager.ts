@@ -349,8 +349,29 @@ export class BotManager {
   setPhase(phaseIndex: number): void {
     this.phaseIndex = phaseIndex;
     this.bots.forEach((bot) => {
-      if (bot.alive) bot.setPhase(phaseIndex);
+      if (!bot.alive) return;
+      bot.setPhase(phaseIndex);
+      this.assignCoverTarget(bot);
     });
+  }
+
+  stageRedFormation(centerZ = 98): void {
+    const redBots = this.bots.filter((bot) => bot.alive && bot.faction === 'red');
+    redBots.forEach((bot, index) => {
+      const row = Math.floor(index / 5);
+      const column = index % 5;
+      bot.group.position.set((column - 2) * 2.1, 8, centerZ + row * 1.7);
+      bot.baseY = 8;
+      bot.laneX = bot.group.position.x;
+      bot.targetZ = bot.group.position.z;
+      bot.state = 'hold';
+      bot.group.rotation.y = Math.PI;
+      bot.resetView();
+    });
+  }
+
+  releaseStagingFormation(): void {
+    this.setPhase(this.phaseIndex);
   }
 
   spawnSquad(faction: Faction, count: number): number {
@@ -722,7 +743,9 @@ export class BotManager {
       if (bot.zone === 'jungle') {
         return bot.faction === 'red' ? point.z >= 38 && point.z <= 68 : point.z >= 34 && point.z <= 62;
       }
-      return bot.faction === 'red' ? point.z <= -44 && point.z >= -74 : point.z <= -54;
+      return bot.faction === 'red'
+        ? point.z <= -55 && point.z >= -92
+        : point.z <= -70;
     });
     const occupied = this.bots
       .filter((candidate) => candidate !== bot && candidate.alive && candidate.zone === bot.zone)

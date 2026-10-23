@@ -10,6 +10,7 @@ import {
   isInArtilleryBlast,
   nextArtilleryInterval,
 } from '../core/artillery';
+import { STAGING_DURATION_SECONDS } from '../core/cinematics';
 import { frontlineEscalation, isOutOfFrontline } from '../core/frontline';
 import { MACHINE_GUN_DAMAGE, advanceAutomaticFire } from '../core/machineGun';
 import { PLAYER_MAX_HP, SHOT_DAMAGE } from '../core/constants';
@@ -66,7 +67,7 @@ export class BattleRuntime {
   private frontlineReinforced = false;
   private frontlineStrikeLaunched = false;
   private battleStarted = false;
-  private stagingEndsAt = performance.now() + 3000;
+  private stagingEndsAt = performance.now() + STAGING_DURATION_SECONDS * 1000;
   private pendingNarration: string | null = null;
   private readonly maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
   private pixelRatio = this.maxPixelRatio;
@@ -193,8 +194,7 @@ export class BattleRuntime {
 
     this.player.setEnabled(false);
     this.weapon.setEnabled(false);
-    this.hud.showStaging(3);
-    this.audio.playHorn();
+    this.hud.showStaging(STAGING_DURATION_SECONDS);
     this.resize();
     window.addEventListener('resize', this.handleResize);
     this.host.addEventListener('pointerdown', this.handleFirstPointer, { once: true });
@@ -273,6 +273,10 @@ export class BattleRuntime {
         this.updateFrontline(dt);
         this.updateFps(dt);
       }
+    } else if (!this.paused && this.ended) {
+      // Continue environmental animation for the five-second closing shot.
+      this.battleScene.update(dt);
+      this.tracers.update(dt);
     }
 
     this.battleScene.renderer.render(this.battleScene.scene, this.battleScene.camera);
@@ -315,10 +319,14 @@ export class BattleRuntime {
       this.bots.setBattleZone(phaseConfig.zone);
       const spawnZ =
         phaseConfig.zone === 'jungle' ? 73 : phaseConfig.zone === 'bridge' ? 26 : -38;
-      this.player.setSpawnPoint(0, spawnZ);
-      this.player.teleportTo(0, spawnZ);
+      const actualSpawnZ = !this.battleStarted && index === 0 ? 96 : spawnZ;
+      this.player.setSpawnPoint(0, actualSpawnZ);
+      this.player.teleportTo(0, actualSpawnZ);
     }
     this.bots.setPhase(index);
+    if (!this.battleStarted && index === 0) {
+      this.bots.stageRedFormation(98);
+    }
     if (index === 2) {
       // The first assault has failed: the leading Red bots are cut down,
       // visibly pulling the line back before the second charge.
@@ -467,6 +475,7 @@ export class BattleRuntime {
     this.weapon.setEnabled(true);
     this.audio.unlock();
     this.audio.playHorn();
+    this.bots.releaseStagingFormation();
     const text = this.pendingNarration;
     this.pendingNarration = null;
     if (text) {
