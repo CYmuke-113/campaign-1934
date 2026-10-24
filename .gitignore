@@ -6,7 +6,9 @@ test-results/
 playwright-report/
 shots/
 .pages-test/
-art/
+# art/ 已改为提交到仓库，V1.1 接手方从 GitHub fork/clone 即可获取素材
+# 仅忽略本机临时参考素材（非项目方提供的正式素材）
+art-local-ref/
 *.local
 .DS_Store
 Thumbs.db
