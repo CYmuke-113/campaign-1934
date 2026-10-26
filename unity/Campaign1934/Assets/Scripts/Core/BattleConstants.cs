@@ -12,9 +12,9 @@ namespace Campaign1934.Core
         public const float ReloadSeconds = 1.8f;
         public const float FireCooldownSeconds = 0.24f;
         public const bool FriendlyFireEnabled = false;
-        public const int MaxTotalBots = 40;
-        public const int MaxRedBots = 26;
-        public const int MaxKmtBots = 14;
+        public const int MaxTotalBots = 20;
+        public const int MaxRedBots = 14;
+        public const int MaxKmtBots = 8;
         public const int KeyAssaultCount = 6;
         public const float PlayerDownRespawnSeconds = 5f;
         public const float KmtReinforcementIntervalSeconds = 35f;

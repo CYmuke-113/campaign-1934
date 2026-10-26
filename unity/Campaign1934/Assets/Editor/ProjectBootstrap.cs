@@ -82,6 +82,7 @@ namespace Campaign1934.Editor
 
         private static void CreateBootstrapScene()
         {
+            if (File.Exists(Path.GetFullPath(Path.Combine(Application.dataPath, "Scenes/Bootstrap.unity")))) return;
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var cameraObject = new GameObject("Main Camera");

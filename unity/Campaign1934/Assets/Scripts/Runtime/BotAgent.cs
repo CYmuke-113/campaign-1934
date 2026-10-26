@@ -51,6 +51,13 @@ namespace Campaign1934.Runtime
             Speed = stableIndex % 4 == 0 ? 3.2f : 4f;
         }
 
+        public void SetOffBridge(float speed = 2.2f)
+        {
+            IsOnBridge = false;
+            Speed = speed;
+            if (avoidanceTimer <= 0f) SetPosture(BotPosture.Stand);
+        }
+
         private void Update()
         {
             float dt = Time.deltaTime;
