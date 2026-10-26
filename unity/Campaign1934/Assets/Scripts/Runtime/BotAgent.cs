@@ -19,7 +19,7 @@ namespace Campaign1934.Runtime
         private float avoidanceTimer;
         private float sideDirection;
         private bool goingAround;
-        private Renderer bodyRenderer;
+        private SoldierAvatar avatar;
 
         public Faction Faction { get; private set; }
         public bool IsKey { get; private set; }
@@ -32,8 +32,11 @@ namespace Campaign1934.Runtime
         {
             Faction = faction;
             IsKey = key;
-            bodyRenderer = GetComponentInChildren<Renderer>();
-            bodyRenderer.sharedMaterial = material;
+            Renderer bodyRenderer = GetComponent<Renderer>();
+            if (bodyRenderer != null) bodyRenderer.enabled = false;
+            avatar = new GameObject("Soldier Avatar").AddComponent<SoldierAvatar>();
+            avatar.transform.SetParent(transform, false);
+            avatar.Build(faction, material);
             samplePosition = transform.position;
             sideDirection = stableIndex % 2 == 0 ? 1f : -1f;
             SetPosture(BotPosture.Stand);
@@ -75,6 +78,7 @@ namespace Campaign1934.Runtime
                 samplePosition = transform.position;
                 sampleTimer = 0f;
             }
+            avatar?.SetState(Posture, movement.sqrMagnitude > 0.00001f);
         }
 
         private void OnCollisionStay(Collision collision)
@@ -93,7 +97,7 @@ namespace Campaign1934.Runtime
         private void SetPosture(BotPosture posture)
         {
             Posture = posture;
-            transform.localScale = posture == BotPosture.Crouch ? new Vector3(1f, 0.72f, 1f) : posture == BotPosture.Prone ? new Vector3(1f, 0.35f, 2.1f) : Vector3.one;
+            avatar?.SetState(posture, IsMoving);
         }
     }
 }

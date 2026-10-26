@@ -16,6 +16,7 @@ namespace Campaign1934.Runtime.Tests
             yield return null;
             Assert.That(Object.FindObjectOfType<BattleRuntime>(), Is.Not.Null);
             Assert.That(Object.FindObjectsOfType<BotAgent>().Length, Is.InRange(15, 20));
+            Assert.That(Object.FindObjectsOfType<SoldierAvatar>().Length, Is.InRange(15, 20));
             Assert.That(Object.FindObjectsOfType<ProjectionScreen>().Length, Is.EqualTo(3));
             LogAssert.NoUnexpectedReceived();
         }
