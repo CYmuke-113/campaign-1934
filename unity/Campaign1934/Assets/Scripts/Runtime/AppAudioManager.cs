@@ -50,7 +50,15 @@ namespace Campaign1934.Runtime
             if (music.isPlaying) StartCoroutine(FadeMusic(music.volume, 0f, 2f));
         }
 
-        public void PlayWeapon() { if (weapon.clip != null) weapon.PlayOneShot(weapon.clip, 0.95f); }
+        public void PlayWeapon()
+        {
+            if (weapon.clip == null) return;
+            weapon.Stop();
+            weapon.time = weapon.clip.length > 0.4f ? Random.Range(0f, weapon.clip.length - 0.25f) : 0f;
+            weapon.volume = 0.95f;
+            weapon.Play();
+            StartCoroutine(StopWeaponSample(0.22f));
+        }
         public void PlayCardHover(bool available)
         {
             if (Time.unscaledTime - lastHoverTime < 0.2f) return;
@@ -89,6 +97,8 @@ namespace Campaign1934.Runtime
             for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime) { music.volume = Mathf.Lerp(from, to, t / seconds); yield return null; }
             music.volume = to; if (to <= 0f) { music.Stop(); music.clip = null; }
         }
+        private IEnumerator StopWeaponSample(float seconds)
+        { yield return new WaitForSeconds(seconds); if (weapon != null) weapon.Stop(); }
         private IEnumerator LoadClip(string relativePath, System.Action<AudioClip> receive)
         {
             string url = System.IO.Path.Combine(Application.streamingAssetsPath, relativePath);
