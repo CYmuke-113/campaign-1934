@@ -2,6 +2,18 @@
 
 本文件记录 Campaign 1934 第一版使用的视觉、音频、字体和文本素材来源。
 
+## V1.1 Unity WebGL 补充
+
+| 类别 | Unity 路径 | 来源 | 授权/说明 |
+| --- | --- | --- | --- |
+| PBR 纹理 | `Assets/Resources/Textures/` | 下表 Poly Haven 素材的项目内副本 | CC0 1.0 |
+| 远处枪声 | `Assets/StreamingAssets/Audio/guns.mp3` | OpenGameArt，见 1.2 | CC0 1.0 |
+| BGM、号角 | `Assets/StreamingAssets/Audio/` | `public/assets/` 中项目方提供素材 | 项目方提供；发布权由项目方确认 |
+| 场景投影视频 | `Assets/StreamingAssets/Video/vid_bunker_wall.mp4` | `public/assets/` 中项目方提供素材 | 项目方提供；当前同时作为三阶段占位视频 |
+| 士兵与建筑 | Unity Primitive + 项目 C# 代码生成 | 本项目原创占位体 | 未引入许可证不明的第三方模型 |
+
+当前仓库没有取得符合“MIT 授权”约束且适合 1934 年中国战场的写实士兵模型，因此按迭代需求的占位规则保留程序化模型。替换正式模型前必须在本文件记录作者、来源和 MIT 许可证。
+
 ## 1. 自有/程序化素材
 
 | 类别 | 素材 | 来源 | 授权/说明 |
