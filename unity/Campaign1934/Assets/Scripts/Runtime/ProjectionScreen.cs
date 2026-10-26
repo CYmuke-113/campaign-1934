@@ -12,9 +12,11 @@ namespace Campaign1934.Runtime
         private RenderTexture texture;
         private Coroutine transition;
         private bool requestedActive;
+        public string VideoFile { get; private set; }
 
         public void Initialize(string videoFile)
         {
+            VideoFile = videoFile;
             screenRenderer = GetComponent<Renderer>();
             material = screenRenderer.material;
             texture = new RenderTexture(640, 360, 0, RenderTextureFormat.ARGB32) { name = name + " Video" };
