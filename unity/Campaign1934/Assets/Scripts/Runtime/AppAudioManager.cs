@@ -68,7 +68,9 @@ namespace Campaign1934.Runtime
         public void PlayCharge()
         {
             if (Time.time - lastChargeTime < 8f || effects.clip == null) return;
-            lastChargeTime = Time.time; effects.PlayOneShot(effects.clip, 0.7f);
+            lastChargeTime = Time.time;
+            effects.PlayOneShot(effects.clip, 0.7f);
+            StartCoroutine(DuckEnvironment(Mathf.Min(8f, effects.clip.length)));
         }
         public void PlayExplosion(Vector3 position, AudioClip clip)
         {
@@ -99,6 +101,13 @@ namespace Campaign1934.Runtime
         }
         private IEnumerator StopWeaponSample(float seconds)
         { yield return new WaitForSeconds(seconds); if (weapon != null) weapon.Stop(); }
+        private IEnumerator DuckEnvironment(float seconds)
+        {
+            float normal = effects.volume;
+            effects.volume = normal * 0.4f;
+            yield return new WaitForSeconds(seconds);
+            if (effects != null) effects.volume = normal;
+        }
         private IEnumerator LoadClip(string relativePath, System.Action<AudioClip> receive)
         {
             string url = System.IO.Path.Combine(Application.streamingAssetsPath, relativePath);
